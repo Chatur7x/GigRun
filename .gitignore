@@ -1,0 +1,19 @@
+# Gradle files
+app-root/.gradle/
+app-root/build/
+app-root/app/build/
+app-root/local.properties
+
+# IDE files
+app-root/.idea/
+.idea/
+*.iml
+*.iws
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Built outputs (optional, standard git practice is to exclude binaries)
+*.apk
+app-root/app/build/outputs/

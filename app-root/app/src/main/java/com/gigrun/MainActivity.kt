@@ -1,0 +1,104 @@
+package com.gigrun
+
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.gigrun.presentation.crash.CrashCountdownOverlay
+import com.gigrun.presentation.dashboard.DashboardScreen
+import com.gigrun.presentation.maintenance.MaintenanceScreen
+import com.gigrun.presentation.platforms.PlatformCompareScreen
+import com.gigrun.presentation.settings.SettingsScreen
+import com.gigrun.presentation.trips.TripListScreen
+import com.gigrun.presentation.trips.TripDetailScreen
+import com.gigrun.presentation.trips.TripsViewModel
+import com.gigrun.ui.theme.*
+import dagger.hilt.android.AndroidEntryPoint
+import androidx.compose.ui.unit.dp
+
+sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
+    data object Dashboard : Screen("dashboard", "Home", Icons.Filled.Home)
+    data object Platforms : Screen("platforms", "Compare", Icons.Filled.Leaderboard)
+    data object Trips : Screen("trips", "Trips", Icons.Filled.TwoWheeler)
+    data object TripDetail : Screen("trip_detail", "Detail", Icons.Filled.Info)
+    data object Maintenance : Screen("maintenance", "Vehicle", Icons.Filled.Build)
+    data object Settings : Screen("settings", "Settings", Icons.Filled.Settings)
+}
+
+val bottomNavItems = listOf(Screen.Dashboard, Screen.Trips, Screen.Platforms, Screen.Maintenance, Screen.Settings)
+
+@AndroidEntryPoint
+class MainActivity : ComponentActivity() {
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
+        setContent {
+            GigRunTheme {
+                val navController = rememberNavController()
+                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                val currentRoute = navBackStackEntry?.destination?.route
+                val tripsViewModel: TripsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
+
+                Scaffold(
+                    containerColor = DeepCarbon,
+                    bottomBar = {
+                        if (currentRoute != Screen.TripDetail.route) {
+                            NavigationBar(containerColor = DarkSurface, tonalElevation = 0.dp) {
+                                bottomNavItems.forEach { screen ->
+                                    NavigationBarItem(
+                                        icon = { Icon(screen.icon, contentDescription = screen.title) },
+                                        label = { Text(screen.title, maxLines = 1) },
+                                        selected = currentRoute == screen.route,
+                                        onClick = {
+                                            navController.navigate(screen.route) {
+                                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
+                                        },
+                                        colors = NavigationBarItemDefaults.colors(
+                                            selectedIconColor = CyberCyan,
+                                            selectedTextColor = CyberCyan,
+                                            unselectedIconColor = TextSecondary,
+                                            unselectedTextColor = TextSecondary,
+                                            indicatorColor = CyberCyan.copy(alpha = 0.12f)
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                    }
+                ) { innerPadding ->
+                    Box(Modifier.padding(innerPadding).background(DeepCarbon)) {
+                        NavHost(navController = navController, startDestination = Screen.Dashboard.route) {
+                            composable(Screen.Dashboard.route) { DashboardScreen() }
+                            composable(Screen.Platforms.route) { PlatformCompareScreen() }
+                            composable(Screen.Trips.route) {
+                                TripListScreen(viewModel = tripsViewModel, onTripClick = { navController.navigate(Screen.TripDetail.route) })
+                            }
+                            composable(Screen.TripDetail.route) {
+                                TripDetailScreen(viewModel = tripsViewModel, onBack = { navController.popBackStack() })
+                            }
+                            composable(Screen.Maintenance.route) { MaintenanceScreen() }
+                            composable(Screen.Settings.route) { SettingsScreen() }
+                        }
+                        CrashCountdownOverlay()
+                    }
+                }
+            }
+        }
+    }
+}

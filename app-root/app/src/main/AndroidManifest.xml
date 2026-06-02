@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Location — core function -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION"/>
+
+    <!-- Foreground service — background tracking -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+
+    <!-- WakeLock — prevent sleep during active shift -->
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+
+    <!-- Notifications — send maintenance and crash alerts -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+
+    <!-- SMS — crash detection emergency dispatch only -->
+    <uses-permission android:name="android.permission.SEND_SMS"/>
+
+    <!-- Sensor — accelerometer for crash detection -->
+    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false"/>
+
+    <!-- High accuracy GPS -->
+    <uses-feature android:name="android.hardware.location.gps" android:required="true"/>
+
+    <application
+        android:name=".GigRunApplication"
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:windowSoftInputMode="adjustResize"
+        android:theme="@style/Theme.GigRun">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Foreground Location Tracking Service -->
+        <service
+            android:name=".service.LocationTrackingService"
+            android:foregroundServiceType="location"
+            android:exported="false"/>
+
+        <!-- Crash Detection Service -->
+        <service
+            android:name=".service.CrashDetectionService"
+            android:exported="false"/>
+
+        <!-- Notification Listener Service (user must enable in Settings > Notification Access) -->
+        <service
+            android:name=".service.NotificationScanner"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService"/>
+            </intent-filter>
+        </service>
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    </application>
+
+</manifest>
