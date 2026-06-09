@@ -7,6 +7,7 @@ import com.gigrun.core.utils.NotificationParser
 import com.gigrun.data.database.AppDatabase
 import com.gigrun.data.database.entities.Earning
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.first
 
 /**
  * Listens for notifications from delivery platform apps.
@@ -40,7 +41,7 @@ class NotificationScanner : NotificationListenerService() {
         super.onCreate()
         database = androidx.room.Room.databaseBuilder(
             applicationContext, AppDatabase::class.java, "gigrun_db"
-        ).build()
+        ).fallbackToDestructiveMigration().build()
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -63,9 +64,14 @@ class NotificationScanner : NotificationListenerService() {
                     // Find the most recent active shift
                     val activeShift = database?.shiftDao()?.getActiveShift()
                     if (activeShift != null) {
-                        // Find the most recent trip in this shift to attach earnings
+                        // Find the active trip, or fall back to the most recent trip in this shift
                         val activeTrip = database?.tripDao()?.getActiveTrip(activeShift.id)
-                        val tripId = activeTrip?.id
+                        var tripToUpdate = activeTrip
+                        if (tripToUpdate == null) {
+                            val trips = database?.tripDao()?.getTripsForShift(activeShift.id)?.first()
+                            tripToUpdate = trips?.lastOrNull()
+                        }
+                        val tripId = tripToUpdate?.id
 
                         if (tripId != null) {
                             // Update trip with platform and earning

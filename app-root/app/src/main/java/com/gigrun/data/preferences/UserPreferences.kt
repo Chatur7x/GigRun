@@ -29,6 +29,8 @@ class UserPreferences(private val context: Context) {
         // Vehicle settings
         val VEHICLE_TYPE = stringPreferencesKey("vehicle_type")
         val VEHICLE_NAME = stringPreferencesKey("vehicle_name")
+        val VEHICLE_COMPANY = stringPreferencesKey("vehicle_company")
+        val VEHICLE_MODEL = stringPreferencesKey("vehicle_model")
         val STARTING_ODOMETER = doublePreferencesKey("starting_odometer")
         val ACCUMULATED_DISTANCE = doublePreferencesKey("accumulated_distance")
 
@@ -113,6 +115,14 @@ class UserPreferences(private val context: Context) {
         (prefs[DAILY_EMI] ?: 0.0) + (prefs[DAILY_PHONE_COST] ?: 0.0)
     }
 
+    val vehicleCompany: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[VEHICLE_COMPANY] ?: ""
+    }
+
+    val vehicleModel: Flow<String> = context.dataStore.data.map { prefs ->
+        prefs[VEHICLE_MODEL] ?: ""
+    }
+
     suspend fun setHomeAnchor(lat: Double, lon: Double, radius: Double = 150.0) {
         context.dataStore.edit { prefs ->
             prefs[HOME_LAT] = lat
@@ -137,10 +147,12 @@ class UserPreferences(private val context: Context) {
         }
     }
 
-    suspend fun setVehicleInfo(type: String, name: String, odometer: Double) {
+    suspend fun setVehicleInfo(type: String, name: String, company: String, model: String, odometer: Double) {
         context.dataStore.edit { prefs ->
             prefs[VEHICLE_TYPE] = type
             prefs[VEHICLE_NAME] = name
+            prefs[VEHICLE_COMPANY] = company
+            prefs[VEHICLE_MODEL] = model
             prefs[STARTING_ODOMETER] = odometer
         }
     }

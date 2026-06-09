@@ -1,9 +1,13 @@
 package com.gigrun
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
@@ -21,6 +25,7 @@ import com.gigrun.presentation.crash.CrashCountdownOverlay
 import com.gigrun.presentation.dashboard.DashboardScreen
 import com.gigrun.presentation.maintenance.MaintenanceScreen
 import com.gigrun.presentation.platforms.PlatformCompareScreen
+import com.gigrun.presentation.map.MapScreen
 import com.gigrun.presentation.settings.SettingsScreen
 import com.gigrun.presentation.trips.TripListScreen
 import com.gigrun.presentation.trips.TripDetailScreen
@@ -36,9 +41,10 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     data object TripDetail : Screen("trip_detail", "Detail", Icons.Filled.Info)
     data object Maintenance : Screen("maintenance", "Vehicle", Icons.Filled.Build)
     data object Settings : Screen("settings", "Settings", Icons.Filled.Settings)
+    data object Map : Screen("map", "Map", Icons.Filled.Map)
 }
 
-val bottomNavItems = listOf(Screen.Dashboard, Screen.Trips, Screen.Platforms, Screen.Maintenance, Screen.Settings)
+val bottomNavItems = listOf(Screen.Dashboard, Screen.Map, Screen.Trips, Screen.Platforms, Screen.Maintenance, Screen.Settings)
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -46,6 +52,23 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
+            // Request location + notification permissions at launch
+            val permissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestMultiplePermissions()
+            ) { /* permissions granted or denied — map and services check at runtime */ }
+
+            LaunchedEffect(Unit) {
+                val perms = mutableListOf(
+                    Manifest.permission.ACCESS_FINE_LOCATION,
+                    Manifest.permission.ACCESS_COARSE_LOCATION,
+                    Manifest.permission.SEND_SMS
+                )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    perms.add(Manifest.permission.POST_NOTIFICATIONS)
+                }
+                permissionLauncher.launch(perms.toTypedArray())
+            }
+
             GigRunTheme {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -92,6 +115,7 @@ class MainActivity : ComponentActivity() {
                             composable(Screen.TripDetail.route) {
                                 TripDetailScreen(viewModel = tripsViewModel, onBack = { navController.popBackStack() })
                             }
+                            composable(Screen.Map.route) { MapScreen() }
                             composable(Screen.Maintenance.route) { MaintenanceScreen() }
                             composable(Screen.Settings.route) { SettingsScreen() }
                         }

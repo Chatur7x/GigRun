@@ -34,7 +34,7 @@ data class PlatformCompareState(
 class PlatformCompareViewModel(application: Application) : AndroidViewModel(application) {
     private val database = androidx.room.Room.databaseBuilder(
         application, AppDatabase::class.java, "gigrun_db"
-    ).build()
+    ).fallbackToDestructiveMigration().build()
 
     private val _uiState = MutableStateFlow(PlatformCompareState())
     val uiState: StateFlow<PlatformCompareState> = _uiState.asStateFlow()
@@ -58,6 +58,10 @@ class PlatformCompareViewModel(application: Application) : AndroidViewModel(appl
 @Composable
 fun PlatformCompareScreen(viewModel: PlatformCompareViewModel = viewModel()) {
     val state by viewModel.uiState.collectAsState()
+
+    LaunchedEffect(Unit) {
+        viewModel.loadWeekStats()
+    }
 
     Column(
         modifier = Modifier.fillMaxSize().background(DeepCarbon)

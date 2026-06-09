@@ -27,7 +27,8 @@ import kotlinx.coroutines.launch
 
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
     val prefs = UserPreferences(application)
-    private val database = androidx.room.Room.databaseBuilder(application, AppDatabase::class.java, "gigrun_db").build()
+    private val database = androidx.room.Room.databaseBuilder(application, AppDatabase::class.java, "gigrun_db")
+        .fallbackToDestructiveMigration().build()
     private val maintenanceRepo = MaintenanceRepository(database.serviceReminderDao())
 
     var homeLat by mutableStateOf("")
@@ -38,6 +39,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     var collegeLon by mutableStateOf("")
     var vehicleType by mutableStateOf("scooter")
     var vehicleName by mutableStateOf("")
+    var vehicleCompany by mutableStateOf("")
+    var vehicleModel by mutableStateOf("")
     var odometer by mutableStateOf("")
     var fuelEfficiency by mutableStateOf("")
     var fuelPrice by mutableStateOf("")
@@ -61,6 +64,8 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             prefs.fuelPrice.first()?.let { fuelPrice = it.toString() }
             prefs.gForceThreshold.first().let { gForceThreshold = it.toString() }
             prefs.crashDetectionEnabled.first().let { crashEnabled = it }
+            prefs.vehicleCompany.first().let { vehicleCompany = it }
+            prefs.vehicleModel.first().let { vehicleModel = it }
             prefs.emergencyContacts.first().let { contacts ->
                 contact1 = contacts.getOrElse(0) { "" }
                 contact2 = contacts.getOrElse(1) { "" }
@@ -80,7 +85,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
                 if (cLat != null && cLon != null) prefs.setCollegeAnchor(cLat, cLon)
                 if (vehicleName.isNotBlank()) {
                     val odo = odometer.toDoubleOrNull() ?: 0.0
-                    prefs.setVehicleInfo(vehicleType, vehicleName, odo)
+                    prefs.setVehicleInfo(vehicleType, vehicleName, vehicleCompany, vehicleModel, odo)
                     maintenanceRepo.initializeDefaults(vehicleName, vehicleType)
                 }
                 val eff = fuelEfficiency.toDoubleOrNull(); val price = fuelPrice.toDoubleOrNull()
@@ -124,10 +129,13 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
             Spacer(Modifier.height(16.dp))
 
             SettingsSection("Vehicle") {
-                SettingsTextField("Vehicle Name", viewModel.vehicleName) { viewModel.vehicleName = it }
+                SettingsTextField("Vehicle Nickname", viewModel.vehicleName) { viewModel.vehicleName = it }
+                SettingsTextField("Company / Make", viewModel.vehicleCompany) { viewModel.vehicleCompany = it }
+                SettingsTextField("Model", viewModel.vehicleModel) { viewModel.vehicleModel = it }
                 Spacer(Modifier.height(8.dp))
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("scooter", "motorcycle", "bicycle").forEach { type ->
+                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("car", "bike", "auto", "scooter", "motorcycle", "bicycle").forEach { type ->
                         FilterChip(
                             selected = viewModel.vehicleType == type, onClick = { viewModel.vehicleType = type },
                             label = { Text(type.replaceFirstChar { it.uppercase() }, fontSize = 13.sp) },

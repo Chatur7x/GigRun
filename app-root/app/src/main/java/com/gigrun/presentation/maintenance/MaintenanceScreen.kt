@@ -26,6 +26,7 @@ import com.gigrun.ui.components.StatRow
 import com.gigrun.ui.theme.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 data class MaintenanceUiState(
     val reminders: List<ServiceReminder> = emptyList(),
@@ -33,19 +34,27 @@ data class MaintenanceUiState(
 )
 
 class MaintenanceViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = androidx.room.Room.databaseBuilder(application, AppDatabase::class.java, "gigrun_db").build()
+    private val database = androidx.room.Room.databaseBuilder(application, AppDatabase::class.java, "gigrun_db")
+        .fallbackToDestructiveMigration().build()
     private val prefs = UserPreferences(application)
 
     private val _uiState = MutableStateFlow(MaintenanceUiState())
     val uiState: StateFlow<MaintenanceUiState> = _uiState.asStateFlow()
 
+    private var loadJob: Job? = null
+
     init { load() }
 
     fun load() {
-        viewModelScope.launch {
-            val odometer = prefs.accumulatedDistance.first()
-            database.serviceReminderDao().getAllReminders().collect { reminders ->
-                _uiState.value = MaintenanceUiState(reminders = reminders, currentOdometer = odometer)
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
+            combine(
+                database.serviceReminderDao().getAllReminders(),
+                prefs.accumulatedDistance
+            ) { reminders, odometer ->
+                MaintenanceUiState(reminders = reminders, currentOdometer = odometer)
+            }.collect { state ->
+                _uiState.value = state
             }
         }
     }

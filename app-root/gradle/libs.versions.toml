@@ -22,6 +22,8 @@ playServicesLocation = "21.3.0"
 composeMaterialIcons = "1.7.8"
 kotlinxSerializationJson = "1.8.1"
 navigationCompose = "2.9.0"
+playServicesMaps = "19.0.0"
+mapsCompose = "6.1.2"
 
 [libraries]
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "androidxCore" }
@@ -68,6 +70,8 @@ androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version
 
 # Play Services Location
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
+play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
+maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }

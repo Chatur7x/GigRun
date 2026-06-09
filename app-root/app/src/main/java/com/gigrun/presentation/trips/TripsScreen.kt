@@ -28,21 +28,26 @@ import com.gigrun.ui.components.StatRow
 import com.gigrun.ui.theme.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 import java.text.SimpleDateFormat
 import java.util.*
 
 class TripsViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = androidx.room.Room.databaseBuilder(application, AppDatabase::class.java, "gigrun_db").build()
+    private val database = androidx.room.Room.databaseBuilder(application, AppDatabase::class.java, "gigrun_db")
+        .fallbackToDestructiveMigration().build()
     private val _trips = MutableStateFlow<List<Trip>>(emptyList())
     val trips: StateFlow<List<Trip>> = _trips.asStateFlow()
 
     private val _selectedTrip = MutableStateFlow<Trip?>(null)
     val selectedTrip: StateFlow<Trip?> = _selectedTrip.asStateFlow()
 
+    private var loadJob: Job? = null
+
     init { loadToday() }
 
     fun loadToday() {
-        viewModelScope.launch {
+        loadJob?.cancel()
+        loadJob = viewModelScope.launch {
             val cal = Calendar.getInstance()
             cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0)
             val start = cal.timeInMillis

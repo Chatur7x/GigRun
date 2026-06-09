@@ -1,7 +1,9 @@
 package com.gigrun.ui.theme
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 
 // Brand Colors
@@ -35,6 +37,12 @@ private val GigRunDarkColorScheme = darkColorScheme(
     outline = DividerColor
 )
 
+val premiumShapes = Shapes(
+    small = RoundedCornerShape(8.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(24.dp)
+)
+
 @Composable
 fun GigRunTheme(
     content: @Composable () -> Unit
@@ -42,6 +50,7 @@ fun GigRunTheme(
     MaterialTheme(
         colorScheme = GigRunDarkColorScheme,
         typography = Typography(),
+        shapes = premiumShapes,
         content = content
     )
 }

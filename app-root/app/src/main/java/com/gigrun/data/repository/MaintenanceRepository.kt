@@ -43,7 +43,7 @@ class MaintenanceRepository @Inject constructor(
                 lastDoneKm = 0.0, lastDoneDate = now, intervalKm = Double.MAX_VALUE, intervalDays = 30
             )
         )
-        if (vehicleType == "motorcycle") {
+        if (vehicleType == "motorcycle" || vehicleType == "bike" || vehicleType == "scooter") {
             defaults.add(
                 ServiceReminder(
                     vehicleName = vehicleName, reminderType = "chain",

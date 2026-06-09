@@ -81,7 +81,7 @@ class LocationTrackingService : Service() {
         userPreferences = UserPreferences(this)
         database = androidx.room.Room.databaseBuilder(
             applicationContext, AppDatabase::class.java, "gigrun_db"
-        ).build()
+        ).fallbackToDestructiveMigration().build()
 
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GigRun::TrackingWakeLock")
@@ -330,11 +330,13 @@ class LocationTrackingService : Service() {
     }
 
     override fun onDestroy() {
-        serviceScope.launch {
-            finishCurrentTrip(lastLat ?: 0.0, lastLon ?: 0.0)
-            currentShiftId?.let { id ->
-                database.shiftDao().getShiftById(id)?.let { shift ->
-                    database.shiftDao().update(shift.copy(endTime = System.currentTimeMillis()))
+        runBlocking {
+            withContext(Dispatchers.IO) {
+                finishCurrentTrip(lastLat ?: 0.0, lastLon ?: 0.0)
+                currentShiftId?.let { id ->
+                    database.shiftDao().getShiftById(id)?.let { shift ->
+                        database.shiftDao().update(shift.copy(endTime = System.currentTimeMillis()))
+                    }
                 }
             }
         }

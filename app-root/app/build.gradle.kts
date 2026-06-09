@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
   alias(libs.plugins.android.application)
   alias(libs.plugins.compose.compiler)
@@ -15,6 +18,14 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "2.0"
+
+        val localProperties = Properties()
+        val localPropertiesFile = rootProject.file("local.properties")
+        if (localPropertiesFile.exists()) {
+            localProperties.load(FileInputStream(localPropertiesFile))
+        }
+        val mapsApiKey = localProperties.getProperty("MAPS_API_KEY") ?: ""
+        manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
     }
 
     buildTypes {
@@ -86,8 +97,10 @@ dependencies {
   // WorkManager
   implementation(libs.androidx.work.runtime.ktx)
 
-  // Play Services Location
+  // Play Services Location & Maps
   implementation(libs.play.services.location)
+  implementation(libs.play.services.maps)
+  implementation(libs.maps.compose)
 
   // Serialization
   implementation(libs.kotlinx.serialization.json)

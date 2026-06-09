@@ -70,6 +70,7 @@ class CrashDetectionService : Service(), SensorEventListener {
     // Countdown state
     private var countdownJob: Job? = null
     private var isCountdownActive = false
+    private var locationCallback: LocationCallback? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -121,7 +122,7 @@ class CrashDetectionService : Service(), SensorEventListener {
     @Suppress("MissingPermission")
     private fun startLocationMonitoring() {
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1_000L).build()
-        fusedLocationClient.requestLocationUpdates(request, object : LocationCallback() {
+        val callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 result.lastLocation?.let { loc ->
                     lastKnownLat = loc.latitude
@@ -157,7 +158,9 @@ class CrashDetectionService : Service(), SensorEventListener {
                     checkCrashConditions()
                 }
             }
-        }, mainLooper)
+        }
+        locationCallback = callback
+        fusedLocationClient.requestLocationUpdates(request, callback, mainLooper)
     }
 
     override fun onSensorChanged(event: SensorEvent?) {
@@ -314,6 +317,7 @@ class CrashDetectionService : Service(), SensorEventListener {
 
     override fun onDestroy() {
         sensorManager.unregisterListener(this)
+        locationCallback?.let { fusedLocationClient.removeLocationUpdates(it) }
         serviceScope.cancel()
         super.onDestroy()
     }

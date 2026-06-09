@@ -30,7 +30,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     private val database = androidx.room.Room.databaseBuilder(
         application, AppDatabase::class.java, "gigrun_db"
-    ).build()
+    ).fallbackToDestructiveMigration().build()
     private val prefs = UserPreferences(application)
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -92,9 +92,23 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     fun setFuelCost(cost: Double) {
         viewModelScope.launch {
             val activeShift = database.shiftDao().getActiveShift()
-            activeShift?.let {
-                database.shiftDao().update(it.copy(fuelCostInr = cost))
+            if (activeShift != null) {
+                database.shiftDao().update(activeShift.copy(fuelCostInr = cost))
                 loadTodayStats()
+            } else {
+                // If there's no active shift, update the most recent shift of today
+                val cal = Calendar.getInstance()
+                cal.set(Calendar.HOUR_OF_DAY, 0)
+                cal.set(Calendar.MINUTE, 0)
+                cal.set(Calendar.SECOND, 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                val startOfDay = cal.timeInMillis
+                val endOfDay = startOfDay + 86_400_000L
+                val shifts = database.shiftDao().getShiftsForDay(startOfDay, endOfDay).first()
+                if (shifts.isNotEmpty()) {
+                    database.shiftDao().update(shifts.first().copy(fuelCostInr = cost))
+                    loadTodayStats()
+                }
             }
         }
     }
