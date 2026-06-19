@@ -2,10 +2,10 @@
   <img src="https://img.shields.io/badge/Android-14+-3DDC84?style=for-the-badge&logo=android&logoColor=white" />
   <img src="https://img.shields.io/badge/Kotlin-2.0-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" />
   <img src="https://img.shields.io/badge/Jetpack_Compose-Material3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" />
-  <img src="https://img.shields.io/badge/Version-3.0-00E5FF?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Version-3.1-00E5FF?style=for-the-badge" />
 </p>
 
-# 🏍️ GigRun V3
+# 🏍️ GigRun V3.1
 
 > **The ultimate gig-worker companion app for Indian delivery riders.** Track every trip, every rupee, every kilometer — automatically.
 
@@ -151,6 +151,7 @@ cd GigRun/app-root
 
 | Version | Date | Changes |
 |---------|------|---------|
+| **v3.1** | June 2026 | Minor release: Version bumped to 3.1, compiled premium APK as v3.1_GigRun.apk with all newest features. |
 | **v3.0** | June 2026 | Pure Apple-themed UI redesign (dynamic light/dark, SF Pro typography, glassmorphism), Hilt DI, singleton DB, crash detection lifecycle, PDF export, polyline maps, background location, maintenance dedup, FSM reset |
 | v2.0 | June 2025 | Core FSM engine, notification parsing, break-even tracker, maintenance system |
 | v1.0 | May 2025 | Initial prototype with basic GPS tracking |

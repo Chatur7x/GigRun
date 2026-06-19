@@ -16,8 +16,8 @@ android {
         applicationId = "com.gigrun"
         minSdk = 28
         targetSdk = 36
-        versionCode = 1
-        versionName = "2.0"
+        versionCode = 3
+        versionName = "3.1"
 
         val localProperties = Properties()
         val localPropertiesFile = rootProject.file("local.properties")
