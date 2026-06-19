@@ -29,4 +29,10 @@ interface ServiceReminderDao {
 
     @Query("UPDATE service_reminders SET isSnoozed = 0, snoozeUntil = NULL WHERE snoozeUntil IS NOT NULL AND snoozeUntil <= :now")
     suspend fun unsnoozeExpired(now: Long)
+
+    @Query("SELECT COUNT(*) FROM service_reminders WHERE vehicleName = :vehicleName")
+    suspend fun getCountForVehicle(vehicleName: String): Int
+
+    @Query("DELETE FROM service_reminders WHERE vehicleName = :vehicleName")
+    suspend fun deleteAllForVehicle(vehicleName: String)
 }

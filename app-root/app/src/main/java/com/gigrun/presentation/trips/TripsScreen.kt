@@ -1,6 +1,5 @@
 package com.gigrun.presentation.trips
 
-import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -18,23 +17,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.AndroidViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.gigrun.data.database.AppDatabase
+import com.gigrun.core.utils.PolylineEncoder
+import com.gigrun.data.database.dao.TripDao
 import com.gigrun.data.database.entities.Trip
 import com.gigrun.ui.components.PlatformBadge
 import com.gigrun.ui.components.StatRow
 import com.gigrun.ui.theme.*
+import com.google.android.gms.maps.model.CameraPosition
+import com.google.android.gms.maps.model.LatLng
+import com.google.maps.android.compose.*
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
 import java.text.SimpleDateFormat
 import java.util.*
+import javax.inject.Inject
 
-class TripsViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = androidx.room.Room.databaseBuilder(application, AppDatabase::class.java, "gigrun_db")
-        .fallbackToDestructiveMigration().build()
+@HiltViewModel
+class TripsViewModel @Inject constructor(
+    private val tripDao: TripDao
+) : ViewModel() {
     private val _trips = MutableStateFlow<List<Trip>>(emptyList())
     val trips: StateFlow<List<Trip>> = _trips.asStateFlow()
 
@@ -51,7 +57,7 @@ class TripsViewModel(application: Application) : AndroidViewModel(application) {
             val cal = Calendar.getInstance()
             cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0)
             val start = cal.timeInMillis
-            database.tripDao().getTripsSince(start).collect { _trips.value = it }
+            tripDao.getTripsSince(start).collect { _trips.value = it }
         }
     }
 
@@ -59,7 +65,7 @@ class TripsViewModel(application: Application) : AndroidViewModel(application) {
 }
 
 @Composable
-fun TripListScreen(viewModel: TripsViewModel = viewModel(), onTripClick: (Trip) -> Unit = {}) {
+fun TripListScreen(viewModel: TripsViewModel = hiltViewModel(), onTripClick: (Trip) -> Unit = {}) {
     val trips by viewModel.trips.collectAsState()
     val sdf = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
@@ -106,20 +112,71 @@ fun TripListScreen(viewModel: TripsViewModel = viewModel(), onTripClick: (Trip) 
 }
 
 @Composable
-fun TripDetailScreen(viewModel: TripsViewModel = viewModel(), onBack: () -> Unit = {}) {
+fun TripDetailScreen(viewModel: TripsViewModel = hiltViewModel(), onBack: () -> Unit = {}) {
     val trip by viewModel.selectedTrip.collectAsState()
     val sdf = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
     trip?.let { t ->
-        Column(Modifier.fillMaxSize().background(DeepCarbon).padding(horizontal = 20.dp).padding(top = 16.dp, bottom = 100.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+        // Decode polyline path for map display
+        val pathPoints = remember(t.pathEncoded) {
+            t.pathEncoded?.let { encoded ->
+                try {
+                    PolylineEncoder.decode(encoded).map { LatLng(it.first, it.second) }
+                } catch (_: Exception) { emptyList() }
+            } ?: emptyList()
+        }
+
+        Column(Modifier.fillMaxSize().background(DeepCarbon).padding(top = 16.dp, bottom = 100.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 20.dp)) {
                 IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = CyberCyan) }
                 Text("Trip Detail", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
             }
-            Spacer(Modifier.height(16.dp))
-            Card(colors = CardDefaults.cardColors(containerColor = CardSurface), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+            Spacer(Modifier.height(12.dp))
+
+            // Map with polyline
+            if (pathPoints.size >= 2) {
+                val center = pathPoints[pathPoints.size / 2]
+                val cameraPositionState = rememberCameraPositionState {
+                    position = CameraPosition.fromLatLngZoom(center, 15f)
+                }
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = CardSurface),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.fillMaxWidth().height(220.dp).padding(horizontal = 20.dp)
+                ) {
+                    GoogleMap(
+                        modifier = Modifier.fillMaxSize(),
+                        cameraPositionState = cameraPositionState,
+                        uiSettings = MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false)
+                    ) {
+                        Polyline(
+                            points = pathPoints,
+                            color = CyberCyan,
+                            width = 8f
+                        )
+                        Marker(
+                            state = MarkerState(position = pathPoints.first()),
+                            title = "Start"
+                        )
+                        Marker(
+                            state = MarkerState(position = pathPoints.last()),
+                            title = "End"
+                        )
+                    }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+
+            // Trip details card
+            Card(colors = CardDefaults.cardColors(containerColor = CardSurface), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
                 Column(Modifier.padding(20.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically) { PlatformBadge(t.platform); Spacer(Modifier.width(10.dp)); t.earningInr?.let { Text("₹${it.toInt()}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = EmeraldGreen) } }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        PlatformBadge(t.platform)
+                        Spacer(Modifier.width(10.dp))
+                        t.earningInr?.let {
+                            Text("₹${it.toInt()}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = EmeraldGreen)
+                        }
+                    }
                     Spacer(Modifier.height(16.dp))
                     StatRow("Start Time", sdf.format(Date(t.startTime)))
                     t.endTime?.let { StatRow("End Time", sdf.format(Date(it))) }

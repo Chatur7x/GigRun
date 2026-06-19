@@ -1,6 +1,7 @@
 package com.gigrun
 
 import android.Manifest
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -16,6 +17,10 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -24,15 +29,14 @@ import androidx.navigation.compose.rememberNavController
 import com.gigrun.presentation.crash.CrashCountdownOverlay
 import com.gigrun.presentation.dashboard.DashboardScreen
 import com.gigrun.presentation.maintenance.MaintenanceScreen
-import com.gigrun.presentation.platforms.PlatformCompareScreen
 import com.gigrun.presentation.map.MapScreen
+import com.gigrun.presentation.platforms.PlatformCompareScreen
 import com.gigrun.presentation.settings.SettingsScreen
-import com.gigrun.presentation.trips.TripListScreen
 import com.gigrun.presentation.trips.TripDetailScreen
+import com.gigrun.presentation.trips.TripListScreen
 import com.gigrun.presentation.trips.TripsViewModel
 import com.gigrun.ui.theme.*
 import dagger.hilt.android.AndroidEntryPoint
-import androidx.compose.ui.unit.dp
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
     data object Dashboard : Screen("dashboard", "Home", Icons.Filled.Home)
@@ -52,10 +56,17 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            // Request location + notification permissions at launch
-            val permissionLauncher = rememberLauncherForActivityResult(
+            val context = LocalContext.current
+
+            // Step 1: Request foreground location + SMS + notifications
+            val foregroundPermissionLauncher = rememberLauncherForActivityResult(
                 contract = ActivityResultContracts.RequestMultiplePermissions()
-            ) { /* permissions granted or denied — map and services check at runtime */ }
+            ) { _ -> }
+
+            // Step 2: Background location launcher (Android 10+)
+            val backgroundPermissionLauncher = rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.RequestPermission()
+            ) { /* granted or denied */ }
 
             LaunchedEffect(Unit) {
                 val perms = mutableListOf(
@@ -66,14 +77,26 @@ class MainActivity : ComponentActivity() {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     perms.add(Manifest.permission.POST_NOTIFICATIONS)
                 }
-                permissionLauncher.launch(perms.toTypedArray())
+                foregroundPermissionLauncher.launch(perms.toTypedArray())
+            }
+
+            // Request background location after a short delay to ensure foreground is granted
+            LaunchedEffect(Unit) {
+                kotlinx.coroutines.delay(2000)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    val hasBg = ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.ACCESS_BACKGROUND_LOCATION
+                    ) == PackageManager.PERMISSION_GRANTED
+                    if (!hasBg) {
+                        backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
+                    }
+                }
             }
 
             GigRunTheme {
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
-                val tripsViewModel: TripsViewModel = androidx.lifecycle.viewmodel.compose.viewModel()
 
                 Scaffold(
                     containerColor = DeepCarbon,
@@ -106,6 +129,9 @@ class MainActivity : ComponentActivity() {
                     }
                 ) { innerPadding ->
                     Box(Modifier.padding(innerPadding).background(DeepCarbon)) {
+                        // Share TripsViewModel across trip list and detail screens
+                        val tripsViewModel: TripsViewModel = hiltViewModel()
+
                         NavHost(navController = navController, startDestination = Screen.Dashboard.route) {
                             composable(Screen.Dashboard.route) { DashboardScreen() }
                             composable(Screen.Platforms.route) { PlatformCompareScreen() }

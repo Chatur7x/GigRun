@@ -1,6 +1,5 @@
 package com.gigrun.presentation.settings
 
-import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,21 +14,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.AndroidViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.gigrun.data.database.AppDatabase
 import com.gigrun.data.preferences.UserPreferences
 import com.gigrun.data.repository.MaintenanceRepository
 import com.gigrun.ui.theme.*
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class SettingsViewModel(application: Application) : AndroidViewModel(application) {
-    val prefs = UserPreferences(application)
-    private val database = androidx.room.Room.databaseBuilder(application, AppDatabase::class.java, "gigrun_db")
-        .fallbackToDestructiveMigration().build()
-    private val maintenanceRepo = MaintenanceRepository(database.serviceReminderDao())
+@HiltViewModel
+class SettingsViewModel @Inject constructor(
+    val prefs: UserPreferences,
+    private val maintenanceRepo: MaintenanceRepository
+) : ViewModel() {
 
     var homeLat by mutableStateOf("")
     var homeLon by mutableStateOf("")
@@ -101,7 +101,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 }
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
+fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val snackbarHostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel.saveMessage) { viewModel.saveMessage?.let { snackbarHostState.showSnackbar(it); viewModel.saveMessage = null } }
 
@@ -133,7 +133,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = viewModel()) {
                 SettingsTextField("Company / Make", viewModel.vehicleCompany) { viewModel.vehicleCompany = it }
                 SettingsTextField("Model", viewModel.vehicleModel) { viewModel.vehicleModel = it }
                 Spacer(Modifier.height(8.dp))
-                @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+                @OptIn(ExperimentalLayoutApi::class)
                 FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("car", "bike", "auto", "scooter", "motorcycle", "bicycle").forEach { type ->
                         FilterChip(

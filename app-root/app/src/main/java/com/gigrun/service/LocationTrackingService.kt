@@ -79,9 +79,7 @@ class LocationTrackingService : Service() {
         super.onCreate()
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         userPreferences = UserPreferences(this)
-        database = androidx.room.Room.databaseBuilder(
-            applicationContext, AppDatabase::class.java, "gigrun_db"
-        ).fallbackToDestructiveMigration().build()
+        database = AppDatabase.getInstance(applicationContext)
 
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GigRun::TrackingWakeLock")
@@ -109,6 +107,7 @@ class LocationTrackingService : Service() {
             else -> {
                 startForeground(NOTIFICATION_ID, buildNotification("Starting tracking..."))
                 if (!wakeLock.isHeld) wakeLock.acquire(8 * 60 * 60 * 1000L) // 8 hours max
+                fsmEngine.reset() // Reset FSM state for new shift
                 serviceScope.launch { initializeAnchors() }
                 startLocationUpdates()
                 serviceScope.launch { startShift() }

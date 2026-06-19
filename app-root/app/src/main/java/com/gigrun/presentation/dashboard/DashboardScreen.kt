@@ -16,16 +16,21 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.gigrun.data.preferences.UserPreferences
+import com.gigrun.service.CrashDetectionService
 import com.gigrun.service.LocationTrackingService
 import com.gigrun.ui.components.*
 import com.gigrun.ui.theme.*
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 
 @Composable
-fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
+fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showFuelDialog by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) { viewModel.loadTodayStats() }
 
@@ -49,10 +54,30 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
             }
             FilledTonalButton(
                 onClick = {
-                    val intent = Intent(context, LocationTrackingService::class.java)
-                    intent.action = if (state.isShiftActive) LocationTrackingService.ACTION_STOP
-                                    else LocationTrackingService.ACTION_START
-                    context.startForegroundService(intent)
+                    if (state.isShiftActive) {
+                        // Stop shift
+                        val stopIntent = Intent(context, LocationTrackingService::class.java).apply {
+                            action = LocationTrackingService.ACTION_STOP
+                        }
+                        context.startForegroundService(stopIntent)
+                        // Stop crash detection
+                        context.stopService(Intent(context, CrashDetectionService::class.java))
+                    } else {
+                        // Start shift
+                        val startIntent = Intent(context, LocationTrackingService::class.java).apply {
+                            action = LocationTrackingService.ACTION_START
+                        }
+                        context.startForegroundService(startIntent)
+                        // Start crash detection if enabled
+                        scope.launch {
+                            val prefs = UserPreferences(context)
+                            val crashEnabled = prefs.crashDetectionEnabled.first()
+                            if (crashEnabled) {
+                                val crashIntent = Intent(context, CrashDetectionService::class.java)
+                                context.startForegroundService(crashIntent)
+                            }
+                        }
+                    }
                     viewModel.loadTodayStats()
                 },
                 colors = ButtonDefaults.filledTonalButtonColors(
@@ -129,6 +154,20 @@ fun DashboardScreen(viewModel: DashboardViewModel = viewModel()) {
                     Text("Enter Fuel Cost")
                 }
             }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
+        // PDF Export Button
+        Button(
+            onClick = { viewModel.generateAndShareReport(context) },
+            modifier = Modifier.fillMaxWidth().height(52.dp),
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = CyberCyan)
+        ) {
+            Icon(Icons.Filled.PictureAsPdf, null, tint = DeepCarbon)
+            Spacer(Modifier.width(8.dp))
+            Text("Export Shift Report", color = DeepCarbon, fontWeight = FontWeight.Bold)
         }
     }
 

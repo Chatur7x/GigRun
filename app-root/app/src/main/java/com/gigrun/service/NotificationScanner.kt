@@ -39,9 +39,7 @@ class NotificationScanner : NotificationListenerService() {
 
     override fun onCreate() {
         super.onCreate()
-        database = androidx.room.Room.databaseBuilder(
-            applicationContext, AppDatabase::class.java, "gigrun_db"
-        ).fallbackToDestructiveMigration().build()
+        database = AppDatabase.getInstance(applicationContext)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {

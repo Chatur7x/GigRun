@@ -22,8 +22,12 @@ class MaintenanceRepository @Inject constructor(
 
     /**
      * Initializes default maintenance reminders for a vehicle.
+     * Clears existing reminders for the vehicle first to prevent duplicates.
      */
     suspend fun initializeDefaults(vehicleName: String, vehicleType: String) {
+        // Remove existing reminders for this vehicle to prevent duplicates
+        dao.deleteAllForVehicle(vehicleName)
+
         val now = System.currentTimeMillis()
         val defaults = mutableListOf(
             ServiceReminder(

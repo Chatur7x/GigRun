@@ -47,9 +47,7 @@ class MaintenanceAlertWorker(
     }
 
     override suspend fun doWork(): Result {
-        val database = androidx.room.Room.databaseBuilder(
-            context, AppDatabase::class.java, "gigrun_db"
-        ).fallbackToDestructiveMigration().build()
+        val database = AppDatabase.getInstance(context)
         val prefs = UserPreferences(context)
 
         try {

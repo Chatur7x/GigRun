@@ -1,6 +1,5 @@
 package com.gigrun.presentation.platforms
 
-import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -15,26 +14,28 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.AndroidViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.gigrun.data.database.AppDatabase
 import com.gigrun.data.database.dao.PlatformStatRow
+import com.gigrun.data.database.dao.TripDao
 import com.gigrun.ui.components.PlatformBadge
 import com.gigrun.ui.theme.*
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import javax.inject.Inject
 
 data class PlatformCompareState(
     val platforms: List<PlatformStatRow> = emptyList(),
     val period: String = "This Week"
 )
 
-class PlatformCompareViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = androidx.room.Room.databaseBuilder(
-        application, AppDatabase::class.java, "gigrun_db"
-    ).fallbackToDestructiveMigration().build()
+@HiltViewModel
+class PlatformCompareViewModel @Inject constructor(
+    private val tripDao: TripDao
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(PlatformCompareState())
     val uiState: StateFlow<PlatformCompareState> = _uiState.asStateFlow()
@@ -49,19 +50,17 @@ class PlatformCompareViewModel(application: Application) : AndroidViewModel(appl
             cal.set(Calendar.MINUTE, 0)
             cal.set(Calendar.SECOND, 0)
             val startOfWeek = cal.timeInMillis
-            val stats = database.tripDao().getPlatformStats(startOfWeek)
+            val stats = tripDao.getPlatformStats(startOfWeek)
             _uiState.value = PlatformCompareState(platforms = stats)
         }
     }
 }
 
 @Composable
-fun PlatformCompareScreen(viewModel: PlatformCompareViewModel = viewModel()) {
+fun PlatformCompareScreen(viewModel: PlatformCompareViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
 
-    LaunchedEffect(Unit) {
-        viewModel.loadWeekStats()
-    }
+    LaunchedEffect(Unit) { viewModel.loadWeekStats() }
 
     Column(
         modifier = Modifier.fillMaxSize().background(DeepCarbon)

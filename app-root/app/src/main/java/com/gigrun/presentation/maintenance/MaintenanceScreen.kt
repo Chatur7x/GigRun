@@ -1,6 +1,5 @@
 package com.gigrun.presentation.maintenance
 
-import android.app.Application
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,27 +15,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.AndroidViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.gigrun.data.database.AppDatabase
+import com.gigrun.data.database.dao.ServiceReminderDao
 import com.gigrun.data.database.entities.ServiceReminder
 import com.gigrun.data.preferences.UserPreferences
 import com.gigrun.ui.components.StatRow
 import com.gigrun.ui.theme.*
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Job
+import javax.inject.Inject
 
 data class MaintenanceUiState(
     val reminders: List<ServiceReminder> = emptyList(),
     val currentOdometer: Double = 0.0
 )
 
-class MaintenanceViewModel(application: Application) : AndroidViewModel(application) {
-    private val database = androidx.room.Room.databaseBuilder(application, AppDatabase::class.java, "gigrun_db")
-        .fallbackToDestructiveMigration().build()
-    private val prefs = UserPreferences(application)
+@HiltViewModel
+class MaintenanceViewModel @Inject constructor(
+    private val serviceReminderDao: ServiceReminderDao,
+    private val prefs: UserPreferences
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(MaintenanceUiState())
     val uiState: StateFlow<MaintenanceUiState> = _uiState.asStateFlow()
@@ -49,7 +51,7 @@ class MaintenanceViewModel(application: Application) : AndroidViewModel(applicat
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
             combine(
-                database.serviceReminderDao().getAllReminders(),
+                serviceReminderDao.getAllReminders(),
                 prefs.accumulatedDistance
             ) { reminders, odometer ->
                 MaintenanceUiState(reminders = reminders, currentOdometer = odometer)
@@ -62,7 +64,7 @@ class MaintenanceViewModel(application: Application) : AndroidViewModel(applicat
     fun markDone(reminder: ServiceReminder) {
         viewModelScope.launch {
             val odometer = prefs.accumulatedDistance.first()
-            database.serviceReminderDao().update(
+            serviceReminderDao.update(
                 reminder.copy(lastDoneKm = odometer, lastDoneDate = System.currentTimeMillis(), isSnoozed = false, snoozeUntil = null)
             )
         }
@@ -70,13 +72,13 @@ class MaintenanceViewModel(application: Application) : AndroidViewModel(applicat
 
     fun snooze(reminder: ServiceReminder) {
         viewModelScope.launch {
-            database.serviceReminderDao().snoozeReminder(reminder.id, System.currentTimeMillis() + 3 * 24 * 60 * 60 * 1000L)
+            serviceReminderDao.snoozeReminder(reminder.id, System.currentTimeMillis() + 3 * 24 * 60 * 60 * 1000L)
         }
     }
 }
 
 @Composable
-fun MaintenanceScreen(viewModel: MaintenanceViewModel = viewModel()) {
+fun MaintenanceScreen(viewModel: MaintenanceViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
 
     Column(

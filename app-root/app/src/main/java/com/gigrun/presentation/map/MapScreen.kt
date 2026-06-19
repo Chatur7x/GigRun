@@ -1,7 +1,6 @@
 package com.gigrun.presentation.map
 
 import android.Manifest
-import android.app.Application
 import android.content.pm.PackageManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -18,28 +17,30 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.lifecycle.AndroidViewModel
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.gigrun.data.preferences.UserPreferences
 import com.gigrun.ui.theme.*
 import com.google.android.gms.maps.model.CameraPosition
 import com.google.android.gms.maps.model.LatLng
 import com.google.maps.android.compose.*
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
-class MapViewModel(application: Application) : AndroidViewModel(application) {
-    private val prefs = UserPreferences(application)
+@HiltViewModel
+class MapViewModel @Inject constructor(
+    private val prefs: UserPreferences
+) : ViewModel() {
 
     var homeAnchor by mutableStateOf<LatLng?>(null)
     var storeAnchor by mutableStateOf<LatLng?>(null)
     var collegeAnchor by mutableStateOf<LatLng?>(null)
     var isLoaded by mutableStateOf(false)
 
-    init {
-        loadAnchors()
-    }
+    init { loadAnchors() }
 
     private fun loadAnchors() {
         viewModelScope.launch {
@@ -58,7 +59,7 @@ class MapViewModel(application: Application) : AndroidViewModel(application) {
 }
 
 @Composable
-fun MapScreen(viewModel: MapViewModel = viewModel()) {
+fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
     val context = LocalContext.current
 
     if (!viewModel.isLoaded) {
@@ -72,33 +73,21 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
         return
     }
 
-    // Check if any anchors are set
     val hasAnchors = viewModel.homeAnchor != null || viewModel.storeAnchor != null || viewModel.collegeAnchor != null
 
     if (!hasAnchors) {
-        // Show a friendly empty state when no locations are set
         Box(modifier = Modifier.fillMaxSize().background(DeepCarbon), contentAlignment = Alignment.Center) {
             Card(
                 colors = CardDefaults.cardColors(containerColor = CardSurface),
                 shape = RoundedCornerShape(16.dp),
                 modifier = Modifier.padding(32.dp)
             ) {
-                Column(
-                    Modifier.padding(32.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
+                Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Filled.Map, null, tint = CyberCyan, modifier = Modifier.size(64.dp))
                     Spacer(Modifier.height(16.dp))
-                    Text(
-                        "No Locations Set",
-                        fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary,
-                        textAlign = TextAlign.Center
-                    )
+                    Text("No Locations Set", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(8.dp))
-                    Text(
-                        "Go to Settings and add your Home, Store/Hub, and College coordinates to see them on the map.",
-                        fontSize = 14.sp, color = TextSecondary, textAlign = TextAlign.Center
-                    )
+                    Text("Go to Settings and add your Home, Store/Hub, and College coordinates to see them on the map.", fontSize = 14.sp, color = TextSecondary, textAlign = TextAlign.Center)
                 }
             }
         }
@@ -110,7 +99,6 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
         position = CameraPosition.fromLatLngZoom(defaultCenter, 14f)
     }
 
-    // Check location permission at runtime
     val hasLocationPermission = remember {
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
@@ -134,35 +122,20 @@ fun MapScreen(viewModel: MapViewModel = viewModel()) {
             uiSettings = mapUiSettings
         ) {
             viewModel.homeAnchor?.let {
-                Marker(
-                    state = MarkerState(position = it),
-                    title = "Home",
-                    snippet = "Your Base"
-                )
+                Marker(state = MarkerState(position = it), title = "Home", snippet = "Your Base")
             }
             viewModel.storeAnchor?.let {
-                Marker(
-                    state = MarkerState(position = it),
-                    title = "Store / Hub",
-                    snippet = "Pickup Point"
-                )
+                Marker(state = MarkerState(position = it), title = "Store / Hub", snippet = "Pickup Point")
             }
             viewModel.collegeAnchor?.let {
-                Marker(
-                    state = MarkerState(position = it),
-                    title = "College",
-                    snippet = "Campus"
-                )
+                Marker(state = MarkerState(position = it), title = "College", snippet = "Campus")
             }
         }
 
-        // Map legend overlay at top
         Card(
             colors = CardDefaults.cardColors(containerColor = CardSurface.copy(alpha = 0.9f)),
             shape = RoundedCornerShape(12.dp),
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(16.dp)
+            modifier = Modifier.align(Alignment.TopStart).padding(16.dp)
         ) {
             Column(Modifier.padding(12.dp)) {
                 Text("LOCATIONS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberCyan, letterSpacing = 1.sp)

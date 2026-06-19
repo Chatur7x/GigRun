@@ -1,7 +1,6 @@
 package com.gigrun.di
 
 import android.content.Context
-import androidx.room.Room
 import com.gigrun.data.database.AppDatabase
 import com.gigrun.data.database.dao.*
 import com.gigrun.data.preferences.UserPreferences
@@ -19,9 +18,7 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
-        return Room.databaseBuilder(context, AppDatabase::class.java, "gigrun_db")
-            .fallbackToDestructiveMigration()
-            .build()
+        return AppDatabase.getInstance(context)
     }
 
     @Provides fun provideShiftDao(db: AppDatabase): ShiftDao = db.shiftDao()

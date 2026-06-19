@@ -1,13 +1,18 @@
 package com.gigrun.presentation.dashboard
 
-import android.app.Application
-import androidx.lifecycle.AndroidViewModel
+import android.content.Context
+import android.content.Intent
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.gigrun.data.database.AppDatabase
+import com.gigrun.core.utils.PdfExporter
+import com.gigrun.data.database.dao.ShiftDao
+import com.gigrun.data.database.dao.TripDao
 import com.gigrun.data.preferences.UserPreferences
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
+import javax.inject.Inject
 
 data class DashboardUiState(
     val totalEarned: Double = 0.0,
@@ -26,12 +31,12 @@ data class DashboardUiState(
     val currentFsmState: String = "IDLE"
 )
 
-class DashboardViewModel(application: Application) : AndroidViewModel(application) {
-
-    private val database = androidx.room.Room.databaseBuilder(
-        application, AppDatabase::class.java, "gigrun_db"
-    ).fallbackToDestructiveMigration().build()
-    private val prefs = UserPreferences(application)
+@HiltViewModel
+class DashboardViewModel @Inject constructor(
+    private val shiftDao: ShiftDao,
+    private val tripDao: TripDao,
+    private val prefs: UserPreferences
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState: StateFlow<DashboardUiState> = _uiState.asStateFlow()
@@ -48,12 +53,12 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val startOfDay = cal.timeInMillis
             val endOfDay = startOfDay + 86_400_000L
 
-            val tripCount = database.tripDao().getTripCountForDay(startOfDay, endOfDay)
-            val totalDistance = database.tripDao().getTotalDistanceForDay(startOfDay, endOfDay) ?: 0.0
-            val totalWaitSec = database.tripDao().getTotalWaitTimeForDay(startOfDay, endOfDay) ?: 0
-            val totalEarnings = database.tripDao().getTotalEarningsForDay(startOfDay, endOfDay) ?: 0.0
+            val tripCount = tripDao.getTripCountForDay(startOfDay, endOfDay)
+            val totalDistance = tripDao.getTotalDistanceForDay(startOfDay, endOfDay) ?: 0.0
+            val totalWaitSec = tripDao.getTotalWaitTimeForDay(startOfDay, endOfDay) ?: 0
+            val totalEarnings = tripDao.getTotalEarningsForDay(startOfDay, endOfDay) ?: 0.0
 
-            val shifts = database.shiftDao().getShiftsForDay(startOfDay, endOfDay).first()
+            val shifts = shiftDao.getShiftsForDay(startOfDay, endOfDay).first()
             val shiftTimeMs = shifts.sumOf { shift ->
                 val end = shift.endTime ?: System.currentTimeMillis()
                 end - shift.startTime
@@ -76,7 +81,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             val avgPerTrip = if (tripCount > 0) totalEarnings / tripCount else 0.0
             val fixedCosts = prefs.dailyFixedCosts.first()
             val breakEvenTarget = fuelCost + fixedCosts
-            val isActive = database.shiftDao().getActiveShift() != null
+            val isActive = shiftDao.getActiveShift() != null
 
             _uiState.value = DashboardUiState(
                 totalEarned = totalEarnings, fuelCost = fuelCost, netEarned = netEarned,
@@ -91,12 +96,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
     fun setFuelCost(cost: Double) {
         viewModelScope.launch {
-            val activeShift = database.shiftDao().getActiveShift()
+            val activeShift = shiftDao.getActiveShift()
             if (activeShift != null) {
-                database.shiftDao().update(activeShift.copy(fuelCostInr = cost))
+                shiftDao.update(activeShift.copy(fuelCostInr = cost))
                 loadTodayStats()
             } else {
-                // If there's no active shift, update the most recent shift of today
                 val cal = Calendar.getInstance()
                 cal.set(Calendar.HOUR_OF_DAY, 0)
                 cal.set(Calendar.MINUTE, 0)
@@ -104,12 +108,59 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                 cal.set(Calendar.MILLISECOND, 0)
                 val startOfDay = cal.timeInMillis
                 val endOfDay = startOfDay + 86_400_000L
-                val shifts = database.shiftDao().getShiftsForDay(startOfDay, endOfDay).first()
+                val shifts = shiftDao.getShiftsForDay(startOfDay, endOfDay).first()
                 if (shifts.isNotEmpty()) {
-                    database.shiftDao().update(shifts.first().copy(fuelCostInr = cost))
+                    shiftDao.update(shifts.first().copy(fuelCostInr = cost))
                     loadTodayStats()
                 }
             }
+        }
+    }
+
+    fun generateAndShareReport(context: Context) {
+        viewModelScope.launch {
+            val state = _uiState.value
+            val cal = Calendar.getInstance()
+            val dateFormat = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+            val todayStr = dateFormat.format(cal.time)
+
+            val startOfDay = cal.apply {
+                set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0)
+                set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
+            }.timeInMillis
+
+            val platformStats = tripDao.getPlatformStats(startOfDay)
+            val platformBreakdown = platformStats.map { ps ->
+                PdfExporter.PlatformSummary(
+                    name = ps.platform.replaceFirstChar { it.uppercase() },
+                    trips = ps.tripCount,
+                    earnings = ps.totalEarnings ?: 0.0,
+                    netPerHour = 0.0,
+                    avgWaitMinutes = ((ps.avgWaitTime ?: 0.0) / 60.0),
+                    distanceKm = ps.totalDistance ?: 0.0
+                )
+            }
+
+            val reportData = PdfExporter.ShiftReportData(
+                dateRange = todayStr,
+                totalTrips = state.tripsCompleted,
+                totalDistanceKm = state.totalDistanceKm,
+                totalShiftTimeMinutes = state.shiftTimeMinutes,
+                totalRidingTimeMinutes = state.ridingTimeMinutes,
+                totalWaitTimeMinutes = state.waitTimeMinutes,
+                grossEarnings = state.totalEarned,
+                fuelCost = state.fuelCost,
+                netEarnings = state.netEarned,
+                grossPerHour = state.grossPerHour,
+                netPerHour = state.netPerHour,
+                platformBreakdown = platformBreakdown
+            )
+
+            val file = PdfExporter.generateReport(context, reportData)
+            val shareIntent = PdfExporter.shareReport(context, file)
+            val chooser = Intent.createChooser(shareIntent, "Share Shift Report")
+            chooser.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(chooser)
         }
     }
 }
