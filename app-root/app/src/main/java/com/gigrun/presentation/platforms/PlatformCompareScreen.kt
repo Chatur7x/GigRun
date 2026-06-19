@@ -36,7 +36,6 @@ data class PlatformCompareState(
 class PlatformCompareViewModel @Inject constructor(
     private val tripDao: TripDao
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(PlatformCompareState())
     val uiState: StateFlow<PlatformCompareState> = _uiState.asStateFlow()
 
@@ -46,12 +45,8 @@ class PlatformCompareViewModel @Inject constructor(
         viewModelScope.launch {
             val cal = Calendar.getInstance()
             cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
-            cal.set(Calendar.HOUR_OF_DAY, 0)
-            cal.set(Calendar.MINUTE, 0)
-            cal.set(Calendar.SECOND, 0)
-            val startOfWeek = cal.timeInMillis
-            val stats = tripDao.getPlatformStats(startOfWeek)
-            _uiState.value = PlatformCompareState(platforms = stats)
+            cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0)
+            _uiState.value = PlatformCompareState(platforms = tripDao.getPlatformStats(cal.timeInMillis))
         }
     }
 }
@@ -63,25 +58,31 @@ fun PlatformCompareScreen(viewModel: PlatformCompareViewModel = hiltViewModel())
     LaunchedEffect(Unit) { viewModel.loadWeekStats() }
 
     Column(
-        modifier = Modifier.fillMaxSize().background(DeepCarbon)
+        modifier = Modifier.fillMaxSize().background(SystemBackground)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp).padding(top = 16.dp, bottom = 100.dp)
+            .padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 100.dp)
     ) {
-        Text("PLATFORM COMPARISON", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberCyan, letterSpacing = 2.sp)
-        Spacer(Modifier.height(4.dp))
-        Text(state.period, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Text(
+            "Compare",
+            fontSize = 34.sp,
+            fontWeight = FontWeight.Bold,
+            color = LabelPrimary,
+            letterSpacing = 0.37.sp,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+        Text("Platform stats for this week", fontSize = 15.sp, color = LabelSecondary, letterSpacing = (-0.24).sp)
         Spacer(Modifier.height(20.dp))
 
         if (state.platforms.isEmpty()) {
-            Card(colors = CardDefaults.cardColors(containerColor = CardSurface), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+            Surface(shape = RoundedCornerShape(14.dp), color = SecondaryBackground, modifier = Modifier.fillMaxWidth()) {
                 Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                    Text("No trips recorded yet this week.\nStart riding to see platform stats!", color = TextSecondary, textAlign = TextAlign.Center)
+                    Text("No trips this week yet.\nStart riding to see stats.", color = LabelSecondary, textAlign = TextAlign.Center, fontSize = 15.sp)
                 }
             }
         } else {
-            for (platform in state.platforms) {
+            state.platforms.forEach { platform ->
                 PlatformCard(stat = platform)
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(10.dp))
             }
         }
     }
@@ -89,26 +90,28 @@ fun PlatformCompareScreen(viewModel: PlatformCompareViewModel = hiltViewModel())
 
 @Composable
 private fun PlatformCard(stat: PlatformStatRow) {
-    Card(colors = CardDefaults.cardColors(containerColor = CardSurface), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(20.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(14.dp), color = SecondaryBackground, modifier = Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 PlatformBadge(platform = stat.platform)
-                Text("${stat.tripCount} trips", fontSize = 14.sp, color = TextSecondary)
+                Spacer(Modifier.weight(1f))
+                Text("${stat.tripCount} trips", fontSize = 15.sp, fontWeight = FontWeight.Medium, color = LabelSecondary, letterSpacing = (-0.24).sp)
             }
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(16.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                StatColumn("Earned", "₹${(stat.totalEarnings ?: 0.0).toInt()}", EmeraldGreen)
-                StatColumn("Distance", "${String.format("%.1f", stat.totalDistance ?: 0.0)} km", CyberCyan)
-                StatColumn("Avg Wait", "${((stat.avgWaitTime ?: 0.0) / 60).toInt()} min", MoltenAmber)
+                MetricColumn("Earned", "₹${(stat.totalEarnings ?: 0.0).toInt()}", SystemGreen)
+                MetricColumn("Distance", "${String.format("%.1f", stat.totalDistance ?: 0.0)} km", SystemBlue)
+                MetricColumn("Avg Wait", "${((stat.avgWaitTime ?: 0.0) / 60).toInt()} min", SystemOrange)
             }
         }
     }
 }
 
 @Composable
-private fun StatColumn(label: String, value: String, color: Color) {
+private fun MetricColumn(label: String, value: String, color: Color) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(text = value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = color)
-        Text(text = label, fontSize = 11.sp, color = TextSecondary)
+        Text(text = value, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = color, letterSpacing = 0.38.sp)
+        Spacer(Modifier.height(2.dp))
+        Text(text = label, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = LabelTertiary, letterSpacing = 0.06.sp)
     }
 }

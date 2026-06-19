@@ -15,23 +15,26 @@ import com.gigrun.ui.theme.*
 
 @Composable
 fun PlatformBadge(platform: String, modifier: Modifier = Modifier) {
-    val (bgColor, textColor) = when (platform.lowercase()) {
-        "blinkit" -> Pair(Color(0xFF2E7D32), Color(0xFFA5D6A7))
-        "zepto" -> Pair(Color(0xFF6A1B9A), Color(0xFFCE93D8))
-        "rapido" -> Pair(Color(0xFFE65100), Color(0xFFFFCC80))
-        "uber" -> Pair(Color(0xFF1565C0), Color(0xFF90CAF9))
-        "commute" -> Pair(Color(0xFF37474F), Color(0xFF90A4AE))
-        else -> Pair(DividerColor, TextSecondary)
+    val (bgColor, textColor, label) = when (platform.lowercase()) {
+        "blinkit"  -> Triple(SystemGreen.copy(alpha = 0.15f), SystemGreen, "Blinkit")
+        "zepto"    -> Triple(SystemPurple.copy(alpha = 0.15f), SystemPurple, "Zepto")
+        "rapido"   -> Triple(SystemYellow.copy(alpha = 0.15f), SystemYellow, "Rapido")
+        "uber"     -> Triple(SystemBlue.copy(alpha = 0.15f), SystemBlue, "Uber")
+        "swiggy"   -> Triple(SystemOrange.copy(alpha = 0.15f), SystemOrange, "Swiggy")
+        "zomato"   -> Triple(SystemRed.copy(alpha = 0.15f), SystemRed, "Zomato")
+        "bigbasket" -> Triple(SystemMint.copy(alpha = 0.15f), SystemMint, "BigBasket")
+        else       -> Triple(SystemGray4, LabelPrimary, platform.replaceFirstChar { it.uppercase() })
     }
 
     Text(
-        text = platform.replaceFirstChar { it.uppercase() },
-        fontSize = 11.sp,
+        text = label,
+        fontSize = 13.sp,
         fontWeight = FontWeight.SemiBold,
         color = textColor,
+        letterSpacing = (-0.08).sp,
         modifier = modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(bgColor.copy(alpha = 0.3f))
+            .clip(RoundedCornerShape(8.dp))
+            .background(bgColor)
             .padding(horizontal = 10.dp, vertical = 4.dp)
     )
 }

@@ -39,10 +39,8 @@ class MaintenanceViewModel @Inject constructor(
     private val serviceReminderDao: ServiceReminderDao,
     private val prefs: UserPreferences
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(MaintenanceUiState())
     val uiState: StateFlow<MaintenanceUiState> = _uiState.asStateFlow()
-
     private var loadJob: Job? = null
 
     init { load() }
@@ -50,23 +48,16 @@ class MaintenanceViewModel @Inject constructor(
     fun load() {
         loadJob?.cancel()
         loadJob = viewModelScope.launch {
-            combine(
-                serviceReminderDao.getAllReminders(),
-                prefs.accumulatedDistance
-            ) { reminders, odometer ->
+            combine(serviceReminderDao.getAllReminders(), prefs.accumulatedDistance) { reminders, odometer ->
                 MaintenanceUiState(reminders = reminders, currentOdometer = odometer)
-            }.collect { state ->
-                _uiState.value = state
-            }
+            }.collect { _uiState.value = it }
         }
     }
 
     fun markDone(reminder: ServiceReminder) {
         viewModelScope.launch {
             val odometer = prefs.accumulatedDistance.first()
-            serviceReminderDao.update(
-                reminder.copy(lastDoneKm = odometer, lastDoneDate = System.currentTimeMillis(), isSnoozed = false, snoozeUntil = null)
-            )
+            serviceReminderDao.update(reminder.copy(lastDoneKm = odometer, lastDoneDate = System.currentTimeMillis(), isSnoozed = false, snoozeUntil = null))
         }
     }
 
@@ -82,28 +73,39 @@ fun MaintenanceScreen(viewModel: MaintenanceViewModel = hiltViewModel()) {
     val state by viewModel.uiState.collectAsState()
 
     Column(
-        modifier = Modifier.fillMaxSize().background(DeepCarbon)
+        modifier = Modifier.fillMaxSize().background(SystemBackground)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp).padding(top = 16.dp, bottom = 100.dp)
+            .padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 100.dp)
     ) {
-        Text("VEHICLE MAINTENANCE", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberCyan, letterSpacing = 2.sp)
-        Spacer(Modifier.height(4.dp))
-        Text("Service Tracker", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Spacer(Modifier.height(8.dp))
-        Text("Odometer: ${String.format("%.0f", state.currentOdometer)} km", fontSize = 14.sp, color = TextSecondary)
+        Text(
+            "Vehicle",
+            fontSize = 34.sp,
+            fontWeight = FontWeight.Bold,
+            color = LabelPrimary,
+            letterSpacing = 0.37.sp,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
+        Text(
+            "Odometer: ${String.format("%.0f", state.currentOdometer)} km",
+            fontSize = 15.sp, color = LabelSecondary, letterSpacing = (-0.24).sp
+        )
         Spacer(Modifier.height(20.dp))
 
         if (state.reminders.isEmpty()) {
-            Card(colors = CardDefaults.cardColors(containerColor = CardSurface), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-                Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
-                    Text("No vehicle configured.\nSet up in Settings to get maintenance alerts.", color = TextSecondary, textAlign = TextAlign.Center)
+            Surface(shape = RoundedCornerShape(14.dp), color = SecondaryBackground, modifier = Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Filled.Build, null, tint = SystemGray, modifier = Modifier.size(48.dp))
+                    Spacer(Modifier.height(12.dp))
+                    Text("No Vehicle Set Up", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = LabelPrimary, textAlign = TextAlign.Center)
+                    Spacer(Modifier.height(6.dp))
+                    Text("Configure your vehicle in Settings to get maintenance reminders.", fontSize = 15.sp, color = LabelSecondary, textAlign = TextAlign.Center)
                 }
             }
         }
 
-        for (reminder in state.reminders) {
+        state.reminders.forEach { reminder ->
             MaintenanceCard(reminder, state.currentOdometer, { viewModel.markDone(reminder) }, { viewModel.snooze(reminder) })
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(10.dp))
         }
     }
 }
@@ -116,39 +118,59 @@ private fun MaintenanceCard(reminder: ServiceReminder, currentOdometer: Double, 
     val dayProgress = (daysSince.toFloat() / reminder.intervalDays).coerceIn(0f, 1f)
     val overallProgress = maxOf(kmProgress, dayProgress)
 
-    val statusColor = when { overallProgress >= 0.9f -> CyberCrimson; overallProgress >= 0.7f -> MoltenAmber; else -> EmeraldGreen }
+    val statusColor = when {
+        overallProgress >= 0.9f -> SystemRed
+        overallProgress >= 0.7f -> SystemOrange
+        else -> SystemGreen
+    }
     val icon = when (reminder.reminderType) {
         "oil" -> Icons.Filled.WaterDrop; "air_filter" -> Icons.Filled.Air; "chain" -> Icons.Filled.Link
         "general" -> Icons.Filled.Build; "tyre" -> Icons.Filled.TireRepair; else -> Icons.Filled.Settings
     }
     val title = when (reminder.reminderType) {
-        "oil" -> "Engine Oil Change"; "air_filter" -> "Air Filter Check"; "chain" -> "Chain Lubrication"
-        "general" -> "General Service"; "tyre" -> "Tyre Pressure Check"; else -> reminder.reminderType
+        "oil" -> "Engine Oil"; "air_filter" -> "Air Filter"; "chain" -> "Chain Lube"
+        "general" -> "General Service"; "tyre" -> "Tyre Pressure"; else -> reminder.reminderType
     }
 
-    Card(colors = CardDefaults.cardColors(containerColor = CardSurface), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+    Surface(shape = RoundedCornerShape(14.dp), color = SecondaryBackground, modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                Icon(icon, null, tint = statusColor, modifier = Modifier.size(28.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, tint = statusColor, modifier = Modifier.size(24.dp))
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text(title, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, color = TextPrimary)
-                    if (reminder.isSnoozed) Text("Snoozed", fontSize = 11.sp, color = MoltenAmber)
+                    Text(title, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = LabelPrimary, letterSpacing = (-0.41).sp)
+                    if (reminder.isSnoozed) Text("Snoozed", fontSize = 13.sp, color = SystemOrange, letterSpacing = (-0.08).sp)
                 }
             }
             Spacer(Modifier.height(12.dp))
-            LinearProgressIndicator(progress = { overallProgress }, modifier = Modifier.fillMaxWidth().height(6.dp), color = statusColor, trackColor = DividerColor)
+            LinearProgressIndicator(
+                progress = { overallProgress },
+                modifier = Modifier.fillMaxWidth().height(4.dp),
+                color = statusColor,
+                trackColor = SystemGray4,
+                drawStopIndicator = {}
+            )
             Spacer(Modifier.height(12.dp))
-            if (reminder.intervalKm < Double.MAX_VALUE / 2) StatRow("Distance since service", "${kmSince.toInt()} / ${reminder.intervalKm.toInt()} km")
-            StatRow("Days since service", "$daysSince / ${reminder.intervalDays} days")
-            Spacer(Modifier.height(8.dp))
+            if (reminder.intervalKm < Double.MAX_VALUE / 2) {
+                StatRow("Distance", "${kmSince.toInt()} / ${reminder.intervalKm.toInt()} km")
+                HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 2.dp))
+            }
+            StatRow("Days", "$daysSince / ${reminder.intervalDays} days")
+            Spacer(Modifier.height(10.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = onSnooze) { Text("Snooze 3d", color = TextSecondary, fontSize = 13.sp) }
+                TextButton(onClick = onSnooze) {
+                    Text("Snooze", color = LabelSecondary, fontSize = 15.sp, letterSpacing = (-0.24).sp)
+                }
                 Spacer(Modifier.width(8.dp))
-                FilledTonalButton(onClick = onMarkDone, colors = ButtonDefaults.filledTonalButtonColors(containerColor = EmeraldGreen.copy(alpha = 0.2f)), shape = RoundedCornerShape(10.dp)) {
-                    Icon(Icons.Filled.Check, null, tint = EmeraldGreen, modifier = Modifier.size(16.dp))
+                Button(
+                    onClick = onMarkDone,
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = SystemGreen),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Filled.Check, null, tint = LabelPrimary, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(4.dp))
-                    Text("Mark Done", color = EmeraldGreen, fontSize = 13.sp)
+                    Text("Done", color = LabelPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.24).sp)
                 }
             }
         }

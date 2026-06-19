@@ -56,8 +56,7 @@ class TripsViewModel @Inject constructor(
         loadJob = viewModelScope.launch {
             val cal = Calendar.getInstance()
             cal.set(Calendar.HOUR_OF_DAY, 0); cal.set(Calendar.MINUTE, 0); cal.set(Calendar.SECOND, 0)
-            val start = cal.timeInMillis
-            tripDao.getTripsSince(start).collect { _trips.value = it }
+            tripDao.getTripsSince(cal.timeInMillis).collect { _trips.value = it }
         }
     }
 
@@ -69,40 +68,64 @@ fun TripListScreen(viewModel: TripsViewModel = hiltViewModel(), onTripClick: (Tr
     val trips by viewModel.trips.collectAsState()
     val sdf = remember { SimpleDateFormat("HH:mm", Locale.getDefault()) }
 
-    Column(Modifier.fillMaxSize().background(DeepCarbon).padding(horizontal = 20.dp).padding(top = 16.dp)) {
-        Text("TRIPS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberCyan, letterSpacing = 2.sp)
-        Spacer(Modifier.height(4.dp))
-        Text("Today's Rides", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-        Spacer(Modifier.height(16.dp))
+    Column(Modifier.fillMaxSize().background(SystemBackground).padding(horizontal = 16.dp).padding(top = 8.dp)) {
+        Text(
+            "Trips",
+            fontSize = 34.sp,
+            fontWeight = FontWeight.Bold,
+            color = LabelPrimary,
+            letterSpacing = 0.37.sp,
+            modifier = Modifier.padding(vertical = 8.dp)
+        )
 
         if (trips.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text("No trips yet today.\nStart a shift to begin tracking.", color = TextSecondary, textAlign = TextAlign.Center)
+            Box(Modifier.fillMaxSize().padding(bottom = 100.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Filled.TwoWheeler, null, tint = SystemGray, modifier = Modifier.size(56.dp))
+                    Spacer(Modifier.height(16.dp))
+                    Text("No Trips Today", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = LabelPrimary)
+                    Spacer(Modifier.height(6.dp))
+                    Text("Start a shift to begin tracking.", fontSize = 15.sp, color = LabelSecondary, textAlign = TextAlign.Center)
+                }
             }
         } else {
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp), contentPadding = PaddingValues(bottom = 100.dp)) {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(1.dp), contentPadding = PaddingValues(bottom = 100.dp)) {
                 items(trips) { trip ->
-                    Card(
-                        colors = CardDefaults.cardColors(containerColor = CardSurface),
-                        shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier.fillMaxWidth().clickable { viewModel.selectTrip(trip); onTripClick(trip) }
+                    Surface(
+                        modifier = Modifier.fillMaxWidth().clickable { viewModel.selectTrip(trip); onTripClick(trip) },
+                        shape = RoundedCornerShape(0.dp),
+                        color = SecondaryBackground
                     ) {
-                        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.TwoWheeler, null, tint = CyberCyan, modifier = Modifier.size(32.dp))
-                            Spacer(Modifier.width(14.dp))
+                        Row(
+                            Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             Column(Modifier.weight(1f)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     PlatformBadge(trip.platform)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(sdf.format(Date(trip.startTime)), fontSize = 13.sp, color = TextSecondary)
-                                    trip.endTime?.let { Text(" → ${sdf.format(Date(it))}", fontSize = 13.sp, color = TextSecondary) }
+                                    Spacer(Modifier.width(10.dp))
+                                    Text(
+                                        "${sdf.format(Date(trip.startTime))}${trip.endTime?.let { " → ${sdf.format(Date(it))}" } ?: ""}",
+                                        fontSize = 13.sp, color = LabelSecondary, letterSpacing = (-0.08).sp
+                                    )
                                 }
-                                Spacer(Modifier.height(4.dp))
-                                Text("${String.format("%.1f", trip.distanceKm)} km · Wait ${trip.waitTimeSec / 60}m", fontSize = 12.sp, color = TextSecondary)
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    "${String.format("%.1f", trip.distanceKm)} km  ·  ${trip.waitTimeSec / 60}m wait",
+                                    fontSize = 13.sp, color = LabelTertiary, letterSpacing = (-0.08).sp
+                                )
                             }
                             trip.earningInr?.let {
-                                Text("₹${it.toInt()}", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = EmeraldGreen)
+                                Text(
+                                    "₹${it.toInt()}",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = SystemGreen,
+                                    letterSpacing = 0.38.sp
+                                )
                             }
+                            Spacer(Modifier.width(8.dp))
+                            Icon(Icons.Filled.ChevronRight, null, tint = SystemGray3, modifier = Modifier.size(20.dp))
                         }
                     }
                 }
@@ -117,76 +140,85 @@ fun TripDetailScreen(viewModel: TripsViewModel = hiltViewModel(), onBack: () -> 
     val sdf = remember { SimpleDateFormat("HH:mm:ss", Locale.getDefault()) }
 
     trip?.let { t ->
-        // Decode polyline path for map display
         val pathPoints = remember(t.pathEncoded) {
             t.pathEncoded?.let { encoded ->
-                try {
-                    PolylineEncoder.decode(encoded).map { LatLng(it.first, it.second) }
-                } catch (_: Exception) { emptyList() }
+                try { PolylineEncoder.decode(encoded).map { LatLng(it.first, it.second) } }
+                catch (_: Exception) { emptyList() }
             } ?: emptyList()
         }
 
-        Column(Modifier.fillMaxSize().background(DeepCarbon).padding(top = 16.dp, bottom = 100.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(horizontal = 20.dp)) {
-                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = CyberCyan) }
-                Text("Trip Detail", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+        Column(Modifier.fillMaxSize().background(SystemBackground).padding(bottom = 100.dp)) {
+            // Nav bar
+            Surface(color = SecondaryBackground) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 8.dp)
+                ) {
+                    TextButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = SystemBlue, modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Trips", color = SystemBlue, fontSize = 17.sp, letterSpacing = (-0.41).sp)
+                    }
+                    Spacer(Modifier.weight(1f))
+                    Text("Trip Detail", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = LabelPrimary, letterSpacing = (-0.41).sp)
+                    Spacer(Modifier.weight(1f))
+                    Spacer(Modifier.width(80.dp))
+                }
             }
-            Spacer(Modifier.height(12.dp))
 
-            // Map with polyline
+            // Map
             if (pathPoints.size >= 2) {
                 val center = pathPoints[pathPoints.size / 2]
                 val cameraPositionState = rememberCameraPositionState {
                     position = CameraPosition.fromLatLngZoom(center, 15f)
                 }
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = CardSurface),
-                    shape = RoundedCornerShape(16.dp),
-                    modifier = Modifier.fillMaxWidth().height(220.dp).padding(horizontal = 20.dp)
+                GoogleMap(
+                    modifier = Modifier.fillMaxWidth().height(240.dp),
+                    cameraPositionState = cameraPositionState,
+                    uiSettings = MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false)
                 ) {
-                    GoogleMap(
-                        modifier = Modifier.fillMaxSize(),
-                        cameraPositionState = cameraPositionState,
-                        uiSettings = MapUiSettings(zoomControlsEnabled = false, mapToolbarEnabled = false)
-                    ) {
-                        Polyline(
-                            points = pathPoints,
-                            color = CyberCyan,
-                            width = 8f
-                        )
-                        Marker(
-                            state = MarkerState(position = pathPoints.first()),
-                            title = "Start"
-                        )
-                        Marker(
-                            state = MarkerState(position = pathPoints.last()),
-                            title = "End"
-                        )
-                    }
+                    Polyline(points = pathPoints, color = SystemBlue, width = 6f)
+                    Marker(state = MarkerState(position = pathPoints.first()), title = "Start")
+                    Marker(state = MarkerState(position = pathPoints.last()), title = "End")
                 }
-                Spacer(Modifier.height(16.dp))
             }
 
-            // Trip details card
-            Card(colors = CardDefaults.cardColors(containerColor = CardSurface), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)) {
+            Spacer(Modifier.height(16.dp))
+
+            // Details
+            Surface(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = SecondaryBackground
+            ) {
                 Column(Modifier.padding(20.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         PlatformBadge(t.platform)
-                        Spacer(Modifier.width(10.dp))
+                        Spacer(Modifier.weight(1f))
                         t.earningInr?.let {
-                            Text("₹${it.toInt()}", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = EmeraldGreen)
+                            Text("₹${it.toInt()}", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = SystemGreen, letterSpacing = 0.36.sp)
                         }
                     }
-                    Spacer(Modifier.height(16.dp))
-                    StatRow("Start Time", sdf.format(Date(t.startTime)))
-                    t.endTime?.let { StatRow("End Time", sdf.format(Date(it))) }
+                    Spacer(Modifier.height(20.dp))
+                    StatRow("Start", sdf.format(Date(t.startTime)))
+                    HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                    t.endTime?.let { StatRow("End", sdf.format(Date(it))) }
+                    HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
                     StatRow("Distance", "${String.format("%.2f", t.distanceKm)} km")
-                    StatRow("Wait Time", "${t.waitTimeSec / 60} min ${t.waitTimeSec % 60} sec", valueColor = MoltenAmber)
-                    HorizontalDivider(Modifier.padding(vertical = 8.dp), color = DividerColor)
-                    StatRow("Start Coordinates", "${String.format("%.4f", t.startLat)}, ${String.format("%.4f", t.startLon)}")
-                    t.endLat?.let { lat -> t.endLon?.let { lon -> StatRow("End Coordinates", "${String.format("%.4f", lat)}, ${String.format("%.4f", lon)}") } }
+                    HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                    StatRow("Wait", "${t.waitTimeSec / 60}m ${t.waitTimeSec % 60}s", valueColor = SystemOrange)
+                    HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                    StatRow("From", "${String.format("%.4f", t.startLat)}, ${String.format("%.4f", t.startLon)}")
+                    t.endLat?.let { lat ->
+                        t.endLon?.let { lon ->
+                            HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                            StatRow("To", "${String.format("%.4f", lat)}, ${String.format("%.4f", lon)}")
+                        }
+                    }
                 }
             }
         }
-    } ?: Box(Modifier.fillMaxSize().background(DeepCarbon), contentAlignment = Alignment.Center) { Text("No trip selected", color = TextSecondary) }
+    } ?: Box(Modifier.fillMaxSize().background(SystemBackground), contentAlignment = Alignment.Center) {
+        Text("No trip selected", color = LabelSecondary)
+    }
 }

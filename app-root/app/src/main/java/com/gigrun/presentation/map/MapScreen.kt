@@ -34,25 +34,16 @@ import javax.inject.Inject
 class MapViewModel @Inject constructor(
     private val prefs: UserPreferences
 ) : ViewModel() {
-
     var homeAnchor by mutableStateOf<LatLng?>(null)
     var storeAnchor by mutableStateOf<LatLng?>(null)
     var collegeAnchor by mutableStateOf<LatLng?>(null)
     var isLoaded by mutableStateOf(false)
 
-    init { loadAnchors() }
-
-    private fun loadAnchors() {
+    init {
         viewModelScope.launch {
-            val home = prefs.homeAnchor.first()
-            if (home != null) homeAnchor = LatLng(home.first, home.second)
-
-            val store = prefs.storeAnchor.first()
-            if (store != null) storeAnchor = LatLng(store.first, store.second)
-
-            val college = prefs.collegeAnchor.first()
-            if (college != null) collegeAnchor = LatLng(college.first, college.second)
-
+            prefs.homeAnchor.first()?.let { homeAnchor = LatLng(it.first, it.second) }
+            prefs.storeAnchor.first()?.let { storeAnchor = LatLng(it.first, it.second) }
+            prefs.collegeAnchor.first()?.let { collegeAnchor = LatLng(it.first, it.second) }
             isLoaded = true
         }
     }
@@ -63,12 +54,8 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
     val context = LocalContext.current
 
     if (!viewModel.isLoaded) {
-        Box(modifier = Modifier.fillMaxSize().background(DeepCarbon), contentAlignment = Alignment.Center) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                CircularProgressIndicator(color = CyberCyan)
-                Spacer(Modifier.height(12.dp))
-                Text("Loading map...", color = TextSecondary, fontSize = 14.sp)
-            }
+        Box(Modifier.fillMaxSize().background(SystemBackground), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = SystemBlue, strokeWidth = 3.dp, modifier = Modifier.size(28.dp))
         }
         return
     }
@@ -76,18 +63,14 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
     val hasAnchors = viewModel.homeAnchor != null || viewModel.storeAnchor != null || viewModel.collegeAnchor != null
 
     if (!hasAnchors) {
-        Box(modifier = Modifier.fillMaxSize().background(DeepCarbon), contentAlignment = Alignment.Center) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = CardSurface),
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.padding(32.dp)
-            ) {
+        Box(Modifier.fillMaxSize().background(SystemBackground), contentAlignment = Alignment.Center) {
+            Surface(shape = RoundedCornerShape(14.dp), color = SecondaryBackground, modifier = Modifier.padding(32.dp)) {
                 Column(Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Filled.Map, null, tint = CyberCyan, modifier = Modifier.size(64.dp))
+                    Icon(Icons.Filled.Map, null, tint = SystemBlue, modifier = Modifier.size(48.dp))
                     Spacer(Modifier.height(16.dp))
-                    Text("No Locations Set", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = TextPrimary, textAlign = TextAlign.Center)
-                    Spacer(Modifier.height(8.dp))
-                    Text("Go to Settings and add your Home, Store/Hub, and College coordinates to see them on the map.", fontSize = 14.sp, color = TextSecondary, textAlign = TextAlign.Center)
+                    Text("No Locations", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = LabelPrimary)
+                    Spacer(Modifier.height(6.dp))
+                    Text("Add your Home, Store, and College coordinates in Settings.", fontSize = 15.sp, color = LabelSecondary, textAlign = TextAlign.Center, letterSpacing = (-0.24).sp)
                 }
             }
         }
@@ -98,70 +81,52 @@ fun MapScreen(viewModel: MapViewModel = hiltViewModel()) {
     val cameraPositionState = rememberCameraPositionState {
         position = CameraPosition.fromLatLngZoom(defaultCenter, 14f)
     }
-
     val hasLocationPermission = remember {
         ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
-
-    val mapProperties = MapProperties(
-        isMyLocationEnabled = hasLocationPermission,
-        mapType = MapType.NORMAL
-    )
-    val mapUiSettings = MapUiSettings(
-        myLocationButtonEnabled = hasLocationPermission,
-        mapToolbarEnabled = true,
-        zoomControlsEnabled = true,
-        compassEnabled = true
-    )
 
     Box(Modifier.fillMaxSize()) {
         GoogleMap(
             modifier = Modifier.fillMaxSize(),
             cameraPositionState = cameraPositionState,
-            properties = mapProperties,
-            uiSettings = mapUiSettings
+            properties = MapProperties(isMyLocationEnabled = hasLocationPermission, mapType = MapType.NORMAL),
+            uiSettings = MapUiSettings(myLocationButtonEnabled = hasLocationPermission, mapToolbarEnabled = true, zoomControlsEnabled = false, compassEnabled = true)
         ) {
-            viewModel.homeAnchor?.let {
-                Marker(state = MarkerState(position = it), title = "Home", snippet = "Your Base")
-            }
-            viewModel.storeAnchor?.let {
-                Marker(state = MarkerState(position = it), title = "Store / Hub", snippet = "Pickup Point")
-            }
-            viewModel.collegeAnchor?.let {
-                Marker(state = MarkerState(position = it), title = "College", snippet = "Campus")
-            }
+            viewModel.homeAnchor?.let { Marker(state = MarkerState(position = it), title = "Home", snippet = "Your base") }
+            viewModel.storeAnchor?.let { Marker(state = MarkerState(position = it), title = "Store / Hub", snippet = "Pickup point") }
+            viewModel.collegeAnchor?.let { Marker(state = MarkerState(position = it), title = "College", snippet = "Campus") }
         }
 
-        Card(
-            colors = CardDefaults.cardColors(containerColor = CardSurface.copy(alpha = 0.9f)),
-            shape = RoundedCornerShape(12.dp),
+        // Apple-style floating legend card
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = SecondaryBackground.copy(alpha = 0.92f),
             modifier = Modifier.align(Alignment.TopStart).padding(16.dp)
         ) {
-            Column(Modifier.padding(12.dp)) {
-                Text("LOCATIONS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberCyan, letterSpacing = 1.sp)
-                Spacer(Modifier.height(6.dp))
+            Column(Modifier.padding(14.dp)) {
+                Text("Locations", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = LabelSecondary, letterSpacing = (-0.08).sp)
+                Spacer(Modifier.height(8.dp))
                 viewModel.homeAnchor?.let {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Home, null, tint = EmeraldGreen, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Home", fontSize = 12.sp, color = TextPrimary)
-                    }
+                    LegendRow(Icons.Filled.Home, "Home", SystemGreen)
+                    Spacer(Modifier.height(6.dp))
                 }
                 viewModel.storeAnchor?.let {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.Store, null, tint = MoltenAmber, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("Store / Hub", fontSize = 12.sp, color = TextPrimary)
-                    }
+                    LegendRow(Icons.Filled.Store, "Store / Hub", SystemOrange)
+                    Spacer(Modifier.height(6.dp))
                 }
                 viewModel.collegeAnchor?.let {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Filled.School, null, tint = CyberCyan, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text("College", fontSize = 12.sp, color = TextPrimary)
-                    }
+                    LegendRow(Icons.Filled.School, "College", SystemBlue)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LegendRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, color: androidx.compose.ui.graphics.Color) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, tint = color, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(label, fontSize = 15.sp, color = LabelPrimary, letterSpacing = (-0.24).sp)
     }
 }

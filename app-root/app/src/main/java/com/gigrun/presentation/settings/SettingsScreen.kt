@@ -103,109 +103,212 @@ class SettingsViewModel @Inject constructor(
 @Composable
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
     val snackbarHostState = remember { SnackbarHostState() }
-    LaunchedEffect(viewModel.saveMessage) { viewModel.saveMessage?.let { snackbarHostState.showSnackbar(it); viewModel.saveMessage = null } }
+    LaunchedEffect(viewModel.saveMessage) {
+        viewModel.saveMessage?.let { snackbarHostState.showSnackbar(it); viewModel.saveMessage = null }
+    }
 
-    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, containerColor = DeepCarbon) { padding ->
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }, containerColor = SystemBackground) { padding ->
         Column(
-            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp).padding(top = 16.dp, bottom = 100.dp)
+            modifier = Modifier.fillMaxSize().padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 100.dp)
         ) {
-            Text("SETTINGS", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CyberCyan, letterSpacing = 2.sp)
-            Spacer(Modifier.height(4.dp))
-            Text("Configuration", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-            Spacer(Modifier.height(20.dp))
+            Text(
+                "Settings",
+                fontSize = 34.sp,
+                fontWeight = FontWeight.Bold,
+                color = LabelPrimary,
+                letterSpacing = 0.37.sp,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
 
-            SettingsSection("Location Anchors") {
-                SettingsTextField("Home Latitude", viewModel.homeLat) { viewModel.homeLat = it }
-                SettingsTextField("Home Longitude", viewModel.homeLon) { viewModel.homeLon = it }
-                Spacer(Modifier.height(8.dp))
-                SettingsTextField("Store/Hub Latitude", viewModel.storeLat) { viewModel.storeLat = it }
-                SettingsTextField("Store/Hub Longitude", viewModel.storeLon) { viewModel.storeLon = it }
-                Spacer(Modifier.height(8.dp))
-                SettingsTextField("College Latitude", viewModel.collegeLat) { viewModel.collegeLat = it }
-                SettingsTextField("College Longitude", viewModel.collegeLon) { viewModel.collegeLon = it }
+            Spacer(Modifier.height(12.dp))
+
+            // ── Location Anchors ───────────────────
+            SectionHeader("LOCATION ANCHORS")
+            SettingsGroup {
+                AppleTextField("Home Latitude", viewModel.homeLat) { viewModel.homeLat = it }
+                SettingsDivider()
+                AppleTextField("Home Longitude", viewModel.homeLon) { viewModel.homeLon = it }
+                SettingsDivider()
+                AppleTextField("Store/Hub Latitude", viewModel.storeLat) { viewModel.storeLat = it }
+                SettingsDivider()
+                AppleTextField("Store/Hub Longitude", viewModel.storeLon) { viewModel.storeLon = it }
+                SettingsDivider()
+                AppleTextField("College Latitude", viewModel.collegeLat) { viewModel.collegeLat = it }
+                SettingsDivider()
+                AppleTextField("College Longitude", viewModel.collegeLon) { viewModel.collegeLon = it }
             }
 
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(24.dp))
 
-            SettingsSection("Vehicle") {
-                SettingsTextField("Vehicle Nickname", viewModel.vehicleName) { viewModel.vehicleName = it }
-                SettingsTextField("Company / Make", viewModel.vehicleCompany) { viewModel.vehicleCompany = it }
-                SettingsTextField("Model", viewModel.vehicleModel) { viewModel.vehicleModel = it }
-                Spacer(Modifier.height(8.dp))
+            // ── Vehicle ────────────────────────────
+            SectionHeader("VEHICLE")
+            SettingsGroup {
+                AppleTextField("Vehicle Nickname", viewModel.vehicleName) { viewModel.vehicleName = it }
+                SettingsDivider()
+                AppleTextField("Company / Make", viewModel.vehicleCompany) { viewModel.vehicleCompany = it }
+                SettingsDivider()
+                AppleTextField("Model", viewModel.vehicleModel) { viewModel.vehicleModel = it }
+                SettingsDivider()
+                AppleTextField("Odometer (km)", viewModel.odometer) { viewModel.odometer = it }
+            }
+            Spacer(Modifier.height(8.dp))
+            SettingsGroup {
                 @OptIn(ExperimentalLayoutApi::class)
-                FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FlowRow(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     listOf("car", "bike", "auto", "scooter", "motorcycle", "bicycle").forEach { type ->
                         FilterChip(
-                            selected = viewModel.vehicleType == type, onClick = { viewModel.vehicleType = type },
-                            label = { Text(type.replaceFirstChar { it.uppercase() }, fontSize = 13.sp) },
-                            colors = FilterChipDefaults.filterChipColors(selectedContainerColor = CyberCyan.copy(alpha = 0.2f), selectedLabelColor = CyberCyan)
+                            selected = viewModel.vehicleType == type,
+                            onClick = { viewModel.vehicleType = type },
+                            label = { Text(type.replaceFirstChar { it.uppercase() }, fontSize = 15.sp, letterSpacing = (-0.24).sp) },
+                            shape = RoundedCornerShape(10.dp),
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = SystemBlue.copy(alpha = 0.15f),
+                                selectedLabelColor = SystemBlue
+                            )
                         )
                     }
-                }
-                Spacer(Modifier.height(8.dp))
-                SettingsTextField("Current Odometer (km)", viewModel.odometer) { viewModel.odometer = it }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            SettingsSection("Fuel & Costs") {
-                SettingsTextField("Fuel Efficiency (km/L)", viewModel.fuelEfficiency) { viewModel.fuelEfficiency = it }
-                SettingsTextField("Fuel Price (₹/L)", viewModel.fuelPrice) { viewModel.fuelPrice = it }
-                SettingsTextField("Daily EMI (₹)", viewModel.dailyEmi) { viewModel.dailyEmi = it }
-                SettingsTextField("Daily Phone Cost (₹)", viewModel.phoneCost) { viewModel.phoneCost = it }
-            }
-
-            Spacer(Modifier.height(16.dp))
-
-            SettingsSection("Safety & Crash Detection") {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("Enable Crash Detection", color = TextPrimary)
-                    Switch(checked = viewModel.crashEnabled, onCheckedChange = { viewModel.crashEnabled = it },
-                        colors = SwitchDefaults.colors(checkedTrackColor = CyberCyan, checkedThumbColor = DeepCarbon))
-                }
-                if (viewModel.crashEnabled) {
-                    SettingsTextField("G-Force Threshold", viewModel.gForceThreshold) { viewModel.gForceThreshold = it }
-                    SettingsTextField("Emergency Contact 1", viewModel.contact1) { viewModel.contact1 = it }
-                    SettingsTextField("Emergency Contact 2", viewModel.contact2) { viewModel.contact2 = it }
-                    SettingsTextField("Emergency Contact 3", viewModel.contact3) { viewModel.contact3 = it }
                 }
             }
 
             Spacer(Modifier.height(24.dp))
 
+            // ── Fuel & Costs ───────────────────────
+            SectionHeader("FUEL & COSTS")
+            SettingsGroup {
+                AppleTextField("Fuel Efficiency (km/L)", viewModel.fuelEfficiency) { viewModel.fuelEfficiency = it }
+                SettingsDivider()
+                AppleTextField("Fuel Price (₹/L)", viewModel.fuelPrice) { viewModel.fuelPrice = it }
+                SettingsDivider()
+                AppleTextField("Daily EMI (₹)", viewModel.dailyEmi) { viewModel.dailyEmi = it }
+                SettingsDivider()
+                AppleTextField("Daily Phone Cost (₹)", viewModel.phoneCost) { viewModel.phoneCost = it }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            // ── Safety ─────────────────────────────
+            SectionHeader("SAFETY")
+            SettingsGroup {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Crash Detection", fontSize = 17.sp, color = LabelPrimary, letterSpacing = (-0.41).sp)
+                    Switch(
+                        checked = viewModel.crashEnabled,
+                        onCheckedChange = { viewModel.crashEnabled = it },
+                        colors = SwitchDefaults.colors(
+                            checkedThumbColor = LabelPrimary,
+                            checkedTrackColor = SystemGreen,
+                            uncheckedThumbColor = LabelPrimary,
+                            uncheckedTrackColor = SystemGray4
+                        )
+                    )
+                }
+                if (viewModel.crashEnabled) {
+                    SettingsDivider()
+                    AppleTextField("G-Force Threshold", viewModel.gForceThreshold) { viewModel.gForceThreshold = it }
+                    SettingsDivider()
+                    AppleTextField("Emergency Contact 1", viewModel.contact1) { viewModel.contact1 = it }
+                    SettingsDivider()
+                    AppleTextField("Emergency Contact 2", viewModel.contact2) { viewModel.contact2 = it }
+                    SettingsDivider()
+                    AppleTextField("Emergency Contact 3", viewModel.contact3) { viewModel.contact3 = it }
+                }
+            }
+
+            Spacer(Modifier.height(28.dp))
+
+            // ── Save Button ────────────────────────
             Button(
-                onClick = { viewModel.saveAll() }, modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp), colors = ButtonDefaults.buttonColors(containerColor = CyberCyan)
+                onClick = { viewModel.saveAll() },
+                modifier = Modifier.fillMaxWidth().height(50.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SystemBlue)
             ) {
-                Icon(Icons.Filled.Save, null, tint = DeepCarbon)
-                Spacer(Modifier.width(8.dp))
-                Text("Save All Settings", color = DeepCarbon, fontWeight = FontWeight.Bold)
+                Text("Save All Settings", fontSize = 17.sp, fontWeight = FontWeight.SemiBold, color = LabelPrimary, letterSpacing = (-0.41).sp)
             }
         }
     }
 }
 
 @Composable
-private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(colors = CardDefaults.cardColors(containerColor = CardSurface), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Text(title.uppercase(), fontSize = 11.sp, fontWeight = FontWeight.Bold, color = CyberCyan, letterSpacing = 1.2.sp)
-            Spacer(Modifier.height(12.dp))
-            content()
-        }
+private fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Normal,
+        color = LabelSecondary,
+        letterSpacing = (-0.08).sp,
+        modifier = Modifier.padding(start = 16.dp, bottom = 6.dp)
+    )
+}
+
+@Composable
+private fun SettingsGroup(content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = SecondaryBackground,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(content = content)
     }
 }
 
 @Composable
-private fun SettingsTextField(label: String, value: String, onValueChange: (String) -> Unit) {
-    OutlinedTextField(
-        value = value, onValueChange = onValueChange,
-        label = { Text(label, fontSize = 13.sp) },
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), singleLine = true,
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = CyberCyan, unfocusedBorderColor = DividerColor,
-            focusedLabelColor = CyberCyan, cursorColor = CyberCyan
-        )
+private fun SettingsDivider() {
+    HorizontalDivider(
+        color = OpaqueSeparator,
+        thickness = 0.5.dp,
+        modifier = Modifier.padding(start = 16.dp)
     )
+}
+
+@Composable
+private fun AppleTextField(label: String, value: String, onValueChange: (String) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontSize = 17.sp,
+            color = LabelPrimary,
+            letterSpacing = (-0.41).sp,
+            modifier = Modifier.weight(0.45f)
+        )
+        TextField(
+            value = value,
+            onValueChange = onValueChange,
+            singleLine = true,
+            modifier = Modifier.weight(0.55f),
+            textStyle = androidx.compose.ui.text.TextStyle(
+                fontSize = 17.sp,
+                color = LabelPrimary,
+                letterSpacing = (-0.41).sp,
+                textAlign = androidx.compose.ui.text.style.TextAlign.End
+            ),
+            colors = TextFieldDefaults.colors(
+                focusedContainerColor = SecondaryBackground,
+                unfocusedContainerColor = SecondaryBackground,
+                focusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                unfocusedIndicatorColor = androidx.compose.ui.graphics.Color.Transparent,
+                cursorColor = SystemBlue
+            ),
+            placeholder = {
+                Text(
+                    label, fontSize = 17.sp, color = LabelTertiary,
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        )
+    }
 }

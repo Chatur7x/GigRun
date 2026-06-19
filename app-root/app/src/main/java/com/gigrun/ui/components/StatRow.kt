@@ -15,15 +15,27 @@ import com.gigrun.ui.theme.*
 fun StatRow(
     label: String,
     value: String,
-    valueColor: Color = TextPrimary,
+    valueColor: Color = LabelPrimary,
     modifier: Modifier = Modifier
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().padding(vertical = 6.dp),
+        modifier = modifier.fillMaxWidth().padding(vertical = 5.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = label, fontSize = 14.sp, color = TextSecondary)
-        Text(text = value, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = valueColor)
+        Text(
+            text = label,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Normal,
+            color = LabelSecondary,
+            letterSpacing = (-0.24).sp
+        )
+        Text(
+            text = value,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            color = valueColor,
+            letterSpacing = (-0.24).sp
+        )
     }
 }
