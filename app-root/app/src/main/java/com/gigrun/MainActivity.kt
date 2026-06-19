@@ -36,7 +36,8 @@ import com.gigrun.presentation.settings.SettingsScreen
 import com.gigrun.presentation.trips.TripDetailScreen
 import com.gigrun.presentation.trips.TripListScreen
 import com.gigrun.presentation.trips.TripsViewModel
-import com.gigrun.ui.theme.*
+import com.gigrun.ui.theme.Apple
+import com.gigrun.ui.theme.GigRunTheme
 import dagger.hilt.android.AndroidEntryPoint
 
 sealed class Screen(val route: String, val title: String, val icon: ImageVector) {
@@ -58,81 +59,43 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current
-
-            val foregroundPermissionLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestMultiplePermissions()
-            ) { _ -> }
-
-            val backgroundPermissionLauncher = rememberLauncherForActivityResult(
-                ActivityResultContracts.RequestPermission()
-            ) { _ -> }
+            val fgLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { _ -> }
+            val bgLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { _ -> }
 
             LaunchedEffect(Unit) {
-                val perms = mutableListOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION,
-                    Manifest.permission.SEND_SMS
-                )
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    perms.add(Manifest.permission.POST_NOTIFICATIONS)
-                }
-                foregroundPermissionLauncher.launch(perms.toTypedArray())
+                val perms = mutableListOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.SEND_SMS)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) perms.add(Manifest.permission.POST_NOTIFICATIONS)
+                fgLauncher.launch(perms.toTypedArray())
             }
-
             LaunchedEffect(Unit) {
                 kotlinx.coroutines.delay(2000)
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                    if (ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-                        backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
-                    }
-                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_BACKGROUND_LOCATION) != PackageManager.PERMISSION_GRANTED)
+                    bgLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION)
             }
 
             GigRunTheme {
+                val c = Apple.colors
                 val navController = rememberNavController()
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentRoute = navBackStackEntry?.destination?.route
 
                 Scaffold(
-                    containerColor = SystemBackground,
+                    containerColor = c.groupedBackground,
                     bottomBar = {
                         if (currentRoute != Screen.TripDetail.route) {
-                            // Apple iOS-style tab bar
-                            NavigationBar(
-                                containerColor = SecondaryBackground,
-                                tonalElevation = 0.dp
-                            ) {
+                            NavigationBar(containerColor = c.secondaryGroupedBackground, tonalElevation = 0.dp) {
                                 bottomNavItems.forEach { screen ->
                                     NavigationBarItem(
-                                        icon = {
-                                            Icon(
-                                                screen.icon,
-                                                contentDescription = screen.title,
-                                                modifier = Modifier.size(24.dp)
-                                            )
-                                        },
-                                        label = {
-                                            Text(
-                                                screen.title,
-                                                fontSize = 10.sp,
-                                                maxLines = 1,
-                                                letterSpacing = 0.sp
-                                            )
-                                        },
+                                        icon = { Icon(screen.icon, screen.title, Modifier.size(24.dp)) },
+                                        label = { Text(screen.title, fontSize = 10.sp, maxLines = 1) },
                                         selected = currentRoute == screen.route,
-                                        onClick = {
-                                            navController.navigate(screen.route) {
-                                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                                launchSingleTop = true
-                                                restoreState = true
-                                            }
-                                        },
+                                        onClick = { navController.navigate(screen.route) { popUpTo(navController.graph.findStartDestination().id) { saveState = true }; launchSingleTop = true; restoreState = true } },
                                         colors = NavigationBarItemDefaults.colors(
-                                            selectedIconColor = SystemBlue,
-                                            selectedTextColor = SystemBlue,
-                                            unselectedIconColor = SystemGray,
-                                            unselectedTextColor = SystemGray,
-                                            indicatorColor = SystemBlue.copy(alpha = 0.0f) // No indicator — Apple style
+                                            selectedIconColor = c.blue,
+                                            selectedTextColor = c.blue,
+                                            unselectedIconColor = c.gray,
+                                            unselectedTextColor = c.gray,
+                                            indicatorColor = c.blue.copy(alpha = 0.0f)
                                         )
                                     )
                                 }
@@ -140,18 +103,13 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 ) { innerPadding ->
-                    Box(Modifier.padding(innerPadding).background(SystemBackground)) {
-                        val tripsViewModel: TripsViewModel = hiltViewModel()
-
-                        NavHost(navController = navController, startDestination = Screen.Dashboard.route) {
+                    Box(Modifier.padding(innerPadding).background(c.groupedBackground)) {
+                        val tripsVm: TripsViewModel = hiltViewModel()
+                        NavHost(navController, Screen.Dashboard.route) {
                             composable(Screen.Dashboard.route) { DashboardScreen() }
                             composable(Screen.Map.route) { MapScreen() }
-                            composable(Screen.Trips.route) {
-                                TripListScreen(viewModel = tripsViewModel, onTripClick = { navController.navigate(Screen.TripDetail.route) })
-                            }
-                            composable(Screen.TripDetail.route) {
-                                TripDetailScreen(viewModel = tripsViewModel, onBack = { navController.popBackStack() })
-                            }
+                            composable(Screen.Trips.route) { TripListScreen(tripsVm) { navController.navigate(Screen.TripDetail.route) } }
+                            composable(Screen.TripDetail.route) { TripDetailScreen(tripsVm) { navController.popBackStack() } }
                             composable(Screen.Platforms.route) { PlatformCompareScreen() }
                             composable(Screen.Maintenance.route) { MaintenanceScreen() }
                             composable(Screen.Settings.route) { SettingsScreen() }

@@ -1,7 +1,6 @@
 package com.gigrun.presentation.dashboard
 
 import android.content.Intent
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -24,12 +23,13 @@ import com.gigrun.data.preferences.UserPreferences
 import com.gigrun.service.CrashDetectionService
 import com.gigrun.service.LocationTrackingService
 import com.gigrun.ui.components.*
-import com.gigrun.ui.theme.*
+import com.gigrun.ui.theme.Apple
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 @Composable
 fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
+    val c = Apple.colors
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
     var showFuelDialog by remember { mutableStateOf(false) }
@@ -38,117 +38,72 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
     LaunchedEffect(Unit) { viewModel.loadTodayStats() }
 
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(SystemBackground)
+        modifier = Modifier.fillMaxSize().background(c.groupedBackground)
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp)
-            .padding(top = 8.dp, bottom = 100.dp)
+            .padding(horizontal = 16.dp).padding(top = 8.dp, bottom = 100.dp)
     ) {
         // ── Header ─────────────────────────────────
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                "Dashboard",
-                fontSize = 34.sp,
-                fontWeight = FontWeight.Bold,
-                color = LabelPrimary,
-                letterSpacing = 0.37.sp
-            )
-            // Shift toggle button
+        Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+            Text("Dashboard", fontSize = 34.sp, fontWeight = FontWeight.Bold, color = c.label)
             FilledIconButton(
                 onClick = {
                     if (state.isShiftActive) {
-                        context.startForegroundService(
-                            Intent(context, LocationTrackingService::class.java).apply { action = LocationTrackingService.ACTION_STOP }
-                        )
+                        context.startForegroundService(Intent(context, LocationTrackingService::class.java).apply { action = LocationTrackingService.ACTION_STOP })
                         context.stopService(Intent(context, CrashDetectionService::class.java))
                     } else {
-                        context.startForegroundService(
-                            Intent(context, LocationTrackingService::class.java).apply { action = LocationTrackingService.ACTION_START }
-                        )
-                        scope.launch {
-                            if (UserPreferences(context).crashDetectionEnabled.first()) {
-                                context.startForegroundService(Intent(context, CrashDetectionService::class.java))
-                            }
-                        }
+                        context.startForegroundService(Intent(context, LocationTrackingService::class.java).apply { action = LocationTrackingService.ACTION_START })
+                        scope.launch { if (UserPreferences(context).crashDetectionEnabled.first()) context.startForegroundService(Intent(context, CrashDetectionService::class.java)) }
                     }
                     viewModel.loadTodayStats()
                 },
-                modifier = Modifier.size(44.dp),
-                shape = CircleShape,
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = if (state.isShiftActive) SystemRed else SystemGreen
-                )
+                modifier = Modifier.size(44.dp), shape = CircleShape,
+                colors = IconButtonDefaults.filledIconButtonColors(containerColor = if (state.isShiftActive) c.red else c.green)
             ) {
-                Icon(
-                    if (state.isShiftActive) Icons.Filled.Stop else Icons.Filled.PlayArrow,
-                    contentDescription = if (state.isShiftActive) "End Shift" else "Start Shift",
-                    tint = LabelPrimary,
-                    modifier = Modifier.size(22.dp)
-                )
+                Icon(if (state.isShiftActive) Icons.Filled.Stop else Icons.Filled.PlayArrow, null, tint = c.label, modifier = Modifier.size(22.dp))
             }
         }
 
         Spacer(Modifier.height(12.dp))
 
-        // ── Main Earnings Card ─────────────────────
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = SecondaryBackground
-        ) {
+        // ── Main Earnings ──────────────────────────
+        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), color = c.secondaryGroupedBackground) {
             Column(Modifier.padding(20.dp)) {
-                Text("Today's Earnings", fontSize = 13.sp, color = LabelSecondary, letterSpacing = (-0.08).sp)
+                Text("Today's Earnings", fontSize = 13.sp, color = c.secondaryLabel)
                 Spacer(Modifier.height(4.dp))
-                Text(
-                    "₹ ${state.totalEarned.toInt()}",
-                    fontSize = 42.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = LabelPrimary,
-                    letterSpacing = 0.37.sp
-                )
+                Text("₹ ${state.totalEarned.toInt()}", fontSize = 42.sp, fontWeight = FontWeight.Bold, color = c.label)
                 Spacer(Modifier.height(8.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    InfoPill("${state.tripsCompleted} trips", SystemBlue)
-                    InfoPill("${String.format("%.1f", state.totalDistanceKm)} km", SystemTeal)
-                    if (state.isShiftActive) InfoPill("Live", SystemGreen)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    InfoPill("${state.tripsCompleted} trips", c.blue)
+                    InfoPill("${String.format("%.1f", state.totalDistanceKm)} km", c.teal)
+                    if (state.isShiftActive) InfoPill("Live", c.green)
                 }
             }
         }
 
         Spacer(Modifier.height(12.dp))
 
-        // ── Per-hour cards ─────────────────────────
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            EarningsCard("Net ₹/hr", "₹${state.netPerHour.toInt()}", accentColor = SystemGreen, modifier = Modifier.weight(1f))
-            EarningsCard("Gross ₹/hr", "₹${state.grossPerHour.toInt()}", accentColor = SystemBlue, modifier = Modifier.weight(1f))
+            EarningsCard("Net ₹/hr", "₹${state.netPerHour.toInt()}", accentColor = c.green, modifier = Modifier.weight(1f))
+            EarningsCard("Gross ₹/hr", "₹${state.grossPerHour.toInt()}", accentColor = c.blue, modifier = Modifier.weight(1f))
         }
 
         Spacer(Modifier.height(20.dp))
 
         // ── Shift Breakdown ────────────────────────
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = SecondaryBackground
-        ) {
+        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), color = c.secondaryGroupedBackground) {
             Column(Modifier.padding(20.dp)) {
-                Text("Shift Breakdown", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = LabelPrimary, letterSpacing = 0.38.sp)
+                Text("Shift Breakdown", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = c.label)
                 Spacer(Modifier.height(14.dp))
                 StatRow("Active time", "${state.shiftTimeMinutes / 60}h ${state.shiftTimeMinutes % 60}m")
-                HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
-                StatRow("Wait time", "${state.waitTimeMinutes} min", valueColor = SystemOrange)
-                HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
-                StatRow("Riding time", "${state.ridingTimeMinutes / 60}h ${state.ridingTimeMinutes % 60}m", valueColor = SystemGreen)
-                HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(color = c.opaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                StatRow("Wait time", "${state.waitTimeMinutes} min", valueColor = c.orange)
+                HorizontalDivider(color = c.opaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                StatRow("Riding time", "${state.ridingTimeMinutes / 60}h ${state.ridingTimeMinutes % 60}m", valueColor = c.green)
+                HorizontalDivider(color = c.opaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
                 StatRow("Trips", "${state.tripsCompleted}")
-                HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(color = c.opaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
                 StatRow("Avg/trip", "₹${state.avgEarningPerTrip.toInt()}")
-                HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                HorizontalDivider(color = c.opaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
                 StatRow("Distance", "${String.format("%.1f", state.totalDistanceKm)} km")
             }
         }
@@ -156,94 +111,51 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
         Spacer(Modifier.height(20.dp))
 
         // ── Break-Even ─────────────────────────────
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(14.dp),
-            color = SecondaryBackground
-        ) {
+        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), color = c.secondaryGroupedBackground) {
             Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("Break-Even", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = LabelPrimary, letterSpacing = 0.38.sp, modifier = Modifier.fillMaxWidth())
+                Text("Break-Even", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = c.label, modifier = Modifier.fillMaxWidth())
                 Spacer(Modifier.height(16.dp))
                 BreakEvenMeter(earned = state.netEarned, breakEvenTarget = state.breakEvenTarget)
                 Spacer(Modifier.height(16.dp))
-                StatRow("Fuel cost", "₹${state.fuelCost.toInt()}", valueColor = SystemOrange)
-                HorizontalDivider(color = OpaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
-                StatRow("Net earnings", "₹${state.netEarned.toInt()}", valueColor = if (state.netEarned >= 0) SystemGreen else SystemRed)
+                StatRow("Fuel cost", "₹${state.fuelCost.toInt()}", valueColor = c.orange)
+                HorizontalDivider(color = c.opaqueSeparator, thickness = 0.5.dp, modifier = Modifier.padding(vertical = 4.dp))
+                StatRow("Net earnings", "₹${state.netEarned.toInt()}", valueColor = if (state.netEarned >= 0) c.green else c.red)
                 Spacer(Modifier.height(14.dp))
-                // Fuel cost button
-                Button(
-                    onClick = { showFuelDialog = true },
-                    modifier = Modifier.fillMaxWidth().height(44.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = SystemGray4)
-                ) {
-                    Icon(Icons.Filled.LocalGasStation, null, tint = SystemOrange, modifier = Modifier.size(18.dp))
+                Button(onClick = { showFuelDialog = true }, Modifier.fillMaxWidth().height(44.dp), shape = RoundedCornerShape(10.dp), colors = ButtonDefaults.buttonColors(containerColor = c.tertiaryFill)) {
+                    Icon(Icons.Filled.LocalGasStation, null, tint = c.orange, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
-                    Text("Enter Fuel Cost", color = LabelPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium, letterSpacing = (-0.24).sp)
+                    Text("Enter Fuel Cost", color = c.label, fontSize = 15.sp, fontWeight = FontWeight.Medium)
                 }
             }
         }
 
         Spacer(Modifier.height(20.dp))
 
-        // ── Export Button ───────────────────────────
-        Button(
-            onClick = { viewModel.generateAndShareReport(context) },
-            modifier = Modifier.fillMaxWidth().height(50.dp),
-            shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = SystemBlue)
-        ) {
-            Icon(Icons.Filled.PictureAsPdf, null, tint = LabelPrimary, modifier = Modifier.size(18.dp))
+        Button(onClick = { viewModel.generateAndShareReport(context) }, Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = c.blue)) {
+            Icon(Icons.Filled.PictureAsPdf, null, tint = c.label, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Export Shift Report", color = LabelPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, letterSpacing = (-0.41).sp)
+            Text("Export Shift Report", color = c.label, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 
-    // ── Fuel Dialog ────────────────────────────────
     if (showFuelDialog) {
         var fuelInput by remember { mutableStateOf("") }
         AlertDialog(
             onDismissRequest = { showFuelDialog = false },
-            title = { Text("Fuel Cost", color = LabelPrimary, fontWeight = FontWeight.Bold) },
+            title = { Text("Fuel Cost", color = c.label, fontWeight = FontWeight.Bold) },
             text = {
-                OutlinedTextField(
-                    value = fuelInput,
-                    onValueChange = { fuelInput = it.filter { c -> c.isDigit() || c == '.' } },
-                    label = { Text("Amount in ₹") },
-                    singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = SystemBlue,
-                        cursorColor = SystemBlue,
-                        focusedLabelColor = SystemBlue
-                    )
-                )
+                OutlinedTextField(fuelInput, { fuelInput = it.filter { ch -> ch.isDigit() || ch == '.' } }, label = { Text("Amount in ₹") }, singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = c.blue, cursorColor = c.blue, focusedLabelColor = c.blue))
             },
-            confirmButton = {
-                TextButton(onClick = { fuelInput.toDoubleOrNull()?.let { viewModel.setFuelCost(it) }; showFuelDialog = false }) {
-                    Text("Save", color = SystemBlue, fontWeight = FontWeight.SemiBold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showFuelDialog = false }) {
-                    Text("Cancel", color = SystemRed)
-                }
-            },
-            containerColor = TertiaryBackground
+            confirmButton = { TextButton(onClick = { fuelInput.toDoubleOrNull()?.let { viewModel.setFuelCost(it) }; showFuelDialog = false }) { Text("Save", color = c.blue, fontWeight = FontWeight.SemiBold) } },
+            dismissButton = { TextButton(onClick = { showFuelDialog = false }) { Text("Cancel", color = c.red) } },
+            containerColor = c.tertiaryBackground
         )
     }
 }
 
 @Composable
 private fun InfoPill(text: String, color: androidx.compose.ui.graphics.Color) {
-    Text(
-        text = text,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Medium,
-        color = color,
-        letterSpacing = 0.sp,
-        modifier = Modifier
-            .clip(RoundedCornerShape(6.dp))
-            .background(color.copy(alpha = 0.12f))
-            .padding(horizontal = 8.dp, vertical = 3.dp)
-    )
+    Text(text, fontSize = 12.sp, fontWeight = FontWeight.Medium, color = color,
+        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(color.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 3.dp))
 }

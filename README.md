@@ -91,7 +91,7 @@ com.gigrun/
 │   ├── NotificationScanner        NotificationListenerService for earnings
 │   └── MaintenanceAlertWorker     Periodic WorkManager check
 └── ui/
-    ├── theme/        CyberPunk dark theme (CyberCyan, DeepCarbon, EmeraldGreen)
+    ├── theme/        Apple HIG theme (AppleColors, dynamic light/dark mode, SF Pro typography)
     └── components/   EarningsCard, BreakEvenMeter, PlatformBadge, StatRow
 ```
 
@@ -143,7 +143,7 @@ cd GigRun/app-root
 
 ## 📱 Screenshots
 
-*Coming soon — the app features a cyberpunk-inspired dark theme with cyan accents, animated break-even gauges, and Google Maps integration.*
+*The app features a premium Apple-themed design with dynamic light/dark mode, SF Pro-inspired typography, minimalist glassmorphism card layouts, and iOS-style rounded containers.*
 
 ---
 
@@ -151,7 +151,7 @@ cd GigRun/app-root
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **v3.0** | June 2025 | Production-ready: Hilt DI, singleton DB, crash detection lifecycle, PDF export, polyline maps, background location, maintenance dedup, FSM reset |
+| **v3.0** | June 2026 | Pure Apple-themed UI redesign (dynamic light/dark, SF Pro typography, glassmorphism), Hilt DI, singleton DB, crash detection lifecycle, PDF export, polyline maps, background location, maintenance dedup, FSM reset |
 | v2.0 | June 2025 | Core FSM engine, notification parsing, break-even tracker, maintenance system |
 | v1.0 | May 2025 | Initial prototype with basic GPS tracking |
 
