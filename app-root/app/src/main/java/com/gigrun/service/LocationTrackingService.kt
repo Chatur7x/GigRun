@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import com.gigrun.R
 import com.gigrun.core.utils.HaversineCalculator
 import com.gigrun.core.utils.PolylineEncoder
+import com.gigrun.core.utils.RidingScoreService
 import com.gigrun.data.database.AppDatabase
 import com.gigrun.data.database.entities.Shift
 import com.gigrun.data.database.entities.Trip
@@ -49,6 +50,8 @@ class LocationTrackingService : Service() {
     private lateinit var wakeLock: PowerManager.WakeLock
 
     private val fsmEngine = FsmEngine()
+    private val ridingScoreService = RidingScoreService()
+    private lateinit var speedAlertService: SpeedAlertService
 
     private var currentShiftId: Long? = null
     private var currentTripId: Long? = null
@@ -84,6 +87,8 @@ class LocationTrackingService : Service() {
         val pm = getSystemService(POWER_SERVICE) as PowerManager
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "GigRun::TrackingWakeLock")
 
+        speedAlertService = SpeedAlertService(this)
+
         createNotificationChannel()
         registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
 
@@ -107,8 +112,17 @@ class LocationTrackingService : Service() {
             else -> {
                 startForeground(NOTIFICATION_ID, buildNotification("Starting tracking..."))
                 if (!wakeLock.isHeld) wakeLock.acquire(8 * 60 * 60 * 1000L) // 8 hours max
-                fsmEngine.reset() // Reset FSM state for new shift
-                serviceScope.launch { initializeAnchors() }
+                fsmEngine.reset()
+                ridingScoreService.start(getSystemService(SENSOR_SERVICE) as android.hardware.SensorManager)
+                serviceScope.launch {
+                    initializeAnchors()
+                    userPreferences.speedAlertEnabled.first().let { enabled ->
+                        speedAlertService.isEnabled = enabled
+                    }
+                    userPreferences.speedLimit.first().let { limit ->
+                        speedAlertService.speedLimit = limit
+                    }
+                }
                 startLocationUpdates()
                 serviceScope.launch { startShift() }
             }
@@ -148,6 +162,9 @@ class LocationTrackingService : Service() {
 
     private suspend fun processLocation(lat: Double, lon: Double, speed: Float) {
         val result = fsmEngine.processLocation(lat, lon)
+        val speedKmh = speed * 3.6
+        speedAlertService.checkSpeed(speedKmh)
+        ridingScoreService.updateSpeed(speedKmh)
 
         // Accumulate distance
         lastLat?.let { pLat ->
@@ -342,6 +359,7 @@ class LocationTrackingService : Service() {
         fusedLocationClient.removeLocationUpdates(locationCallback)
         try { unregisterReceiver(batteryReceiver) } catch (_: Exception) {}
         if (wakeLock.isHeld) wakeLock.release()
+        ridingScoreService.stop()
         serviceScope.cancel()
         super.onDestroy()
     }

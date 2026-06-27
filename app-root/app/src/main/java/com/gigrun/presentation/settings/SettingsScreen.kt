@@ -37,9 +37,11 @@ class SettingsViewModel @Inject constructor(
     var vehicleCompany by mutableStateOf(""); var vehicleModel by mutableStateOf("")
     var odometer by mutableStateOf(""); var fuelEfficiency by mutableStateOf("")
     var fuelPrice by mutableStateOf(""); var dailyEmi by mutableStateOf("")
-    var phoneCost by mutableStateOf(""); var crashEnabled by mutableStateOf(false)
+    var phoneCost by mutableStateOf("");     var crashEnabled by mutableStateOf(false)
     var gForceThreshold by mutableStateOf("4.0")
     var contact1 by mutableStateOf(""); var contact2 by mutableStateOf(""); var contact3 by mutableStateOf("")
+    var speedAlertEnabled by mutableStateOf(false)
+    var speedLimit by mutableStateOf("80.0")
     var saveMessage by mutableStateOf<String?>(null)
 
     init { loadCurrentSettings() }
@@ -56,6 +58,8 @@ class SettingsViewModel @Inject constructor(
             prefs.vehicleCompany.first().let { vehicleCompany = it }
             prefs.vehicleModel.first().let { vehicleModel = it }
             prefs.emergencyContacts.first().let { contact1 = it.getOrElse(0) { "" }; contact2 = it.getOrElse(1) { "" }; contact3 = it.getOrElse(2) { "" } }
+            prefs.speedAlertEnabled.first().let { speedAlertEnabled = it }
+            prefs.speedLimit.first().let { speedLimit = it.toString() }
         }
     }
 
@@ -70,6 +74,7 @@ class SettingsViewModel @Inject constructor(
                 prefs.setDailyFixedCosts(dailyEmi.toDoubleOrNull() ?: 0.0, phoneCost.toDoubleOrNull() ?: 0.0)
                 prefs.setCrashDetection(crashEnabled, gForceThreshold.toDoubleOrNull() ?: 4.0)
                 prefs.setEmergencyContacts(listOfNotNull(contact1.ifBlank { null }, contact2.ifBlank { null }, contact3.ifBlank { null }))
+                prefs.setSpeedAlert(speedAlertEnabled, speedLimit.toDoubleOrNull() ?: 80.0)
                 prefs.setOnboarded(true); saveMessage = "Settings saved successfully!"
             } catch (e: Exception) { saveMessage = "Error: ${e.message}" }
         }
@@ -139,6 +144,27 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel()) {
                     AppleRow("Contact 1", viewModel.contact1, c) { viewModel.contact1 = it }; InsetDivider(c)
                     AppleRow("Contact 2", viewModel.contact2, c) { viewModel.contact2 = it }; InsetDivider(c)
                     AppleRow("Contact 3", viewModel.contact3, c) { viewModel.contact3 = it }
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+            SectionHeader("RIDING ASSIST", c.secondaryLabel)
+            AppleGroup(c.secondaryGroupedBackground) {
+                Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                    Text("Speed Alert", fontSize = 17.sp, color = c.label)
+                    Switch(viewModel.speedAlertEnabled, { viewModel.speedAlertEnabled = it }, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = c.green, uncheckedThumbColor = Color.White, uncheckedTrackColor = c.fill))
+                }
+                if (viewModel.speedAlertEnabled) {
+                    InsetDivider(c)
+                    Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("Speed Limit (km/h)", fontSize = 17.sp, color = c.label, modifier = Modifier.weight(0.5f))
+                        var sliderValue by remember(viewModel.speedLimit) { mutableStateOf(viewModel.speedLimit.toDoubleOrNull() ?: 80.0) }
+                        Slider(value = sliderValue.toFloat(), onValueChange = { sliderValue = it.toDouble(); viewModel.speedLimit = it.toInt().toString() },
+                            valueRange = 20f..120f, steps = 19, modifier = Modifier.weight(0.5f),
+                            colors = SliderDefaults.colors(thumbColor = c.blue, activeTrackColor = c.blue, inactiveTrackColor = c.fill))
+                    }
+                    InsetDivider(c)
+                    Text("Alert at: ${viewModel.speedLimit.toDoubleOrNull()?.toInt() ?: 80} km/h", fontSize = 13.sp, color = c.secondaryLabel, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
                 }
             }
 

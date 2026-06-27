@@ -2,12 +2,12 @@
   <img src="https://img.shields.io/badge/Android-14+-3DDC84?style=for-the-badge&logo=android&logoColor=white" />
   <img src="https://img.shields.io/badge/Kotlin-2.0-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white" />
   <img src="https://img.shields.io/badge/Jetpack_Compose-Material3-4285F4?style=for-the-badge&logo=jetpackcompose&logoColor=white" />
-  <img src="https://img.shields.io/badge/Version-3.1-00E5FF?style=for-the-badge" />
+  <img src="https://img.shields.io/badge/Version-3.2-00E5FF?style=for-the-badge" />
 </p>
 
 # 🏍️ GigRun V3.1
 
-> **The ultimate gig-worker companion app for Indian delivery riders.** Track every trip, every rupee, every kilometer — automatically.
+> **The ultimate gig-worker companion app for Indian delivery riders.** Track every trip, every rupee, every kilometer, every ride quality metric — automatically.
 
 GigRun runs silently in the background while you work on **Blinkit, Zepto, Rapido, Uber** and more. It uses GPS tracking, notification interception, and a state machine to automatically classify your activity and calculate your *real* earnings per hour — after fuel, EMI, and wait time.
 
@@ -19,6 +19,8 @@ GigRun runs silently in the background while you work on **Blinkit, Zepto, Rapid
 - **Live shift tracking** with one-tap Start/End
 - Real-time ₹/hour (gross & net), trip count, distance
 - **Break-even meter** — animated gauge showing profit vs. daily costs
+- **Riding Score** — accelerometer-based monitoring of harsh braking, acceleration & sharp turns
+- **Speed Alert** — configurable overspeed warnings with haptic feedback
 - Fuel cost input with auto-calculation from km/L settings
 
 ### 🗺️ GPS & Route Tracking
@@ -151,7 +153,7 @@ cd GigRun/app-root
 
 | Version | Date | Changes |
 |---------|------|---------|
-| **v3.1** | June 2026 | Minor release: Version bumped to 3.1, compiled premium APK as v3.1_GigRun.apk with all newest features. |
+| **v3.2** | June 2026 | Added Riding Score monitor, Speed Alert system, HUD settings. Refactored project structure with consolidated docs. |
 | **v3.0** | June 2026 | Pure Apple-themed UI redesign (dynamic light/dark, SF Pro typography, glassmorphism), Hilt DI, singleton DB, crash detection lifecycle, PDF export, polyline maps, background location, maintenance dedup, FSM reset |
 | v2.0 | June 2025 | Core FSM engine, notification parsing, break-even tracker, maintenance system |
 | v1.0 | May 2025 | Initial prototype with basic GPS tracking |

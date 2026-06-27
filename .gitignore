@@ -3,6 +3,7 @@ app-root/.gradle/
 app-root/build/
 app-root/app/build/
 app-root/local.properties
+app-root/app/release/
 
 # IDE files
 app-root/.idea/
@@ -14,6 +15,14 @@ app-root/.idea/
 .DS_Store
 Thumbs.db
 
-# Built outputs (optional, standard git practice is to exclude binaries)
+# Built outputs
 *.apk
 app-root/app/build/outputs/
+builds/
+
+# Kotlin build cache
+app-root/.kotlin/
+*.kotlin_module
+
+# Config cache
+app-root/.cxx/

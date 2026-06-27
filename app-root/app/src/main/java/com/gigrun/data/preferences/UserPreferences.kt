@@ -47,6 +47,10 @@ class UserPreferences(private val context: Context) {
         val EMERGENCY_CONTACT_2 = stringPreferencesKey("emergency_contact_2")
         val EMERGENCY_CONTACT_3 = stringPreferencesKey("emergency_contact_3")
 
+        // Speed alert
+        val SPEED_ALERT_ENABLED = booleanPreferencesKey("speed_alert_enabled")
+        val SPEED_LIMIT = doublePreferencesKey("speed_limit")
+
         // GPS accuracy
         val GPS_MODE = stringPreferencesKey("gps_mode")
 
@@ -93,6 +97,14 @@ class UserPreferences(private val context: Context) {
 
     val accumulatedDistance: Flow<Double> = context.dataStore.data.map { prefs ->
         prefs[ACCUMULATED_DISTANCE] ?: 0.0
+    }
+
+    val speedAlertEnabled: Flow<Boolean> = context.dataStore.data.map { prefs ->
+        prefs[SPEED_ALERT_ENABLED] ?: false
+    }
+
+    val speedLimit: Flow<Double> = context.dataStore.data.map { prefs ->
+        prefs[SPEED_LIMIT] ?: 80.0
     }
 
     val gpsMode: Flow<String> = context.dataStore.data.map { prefs ->
@@ -190,6 +202,13 @@ class UserPreferences(private val context: Context) {
         context.dataStore.edit { prefs ->
             prefs[DAILY_EMI] = emi
             prefs[DAILY_PHONE_COST] = phoneCost
+        }
+    }
+
+    suspend fun setSpeedAlert(enabled: Boolean, limit: Double = 80.0) {
+        context.dataStore.edit { prefs ->
+            prefs[SPEED_ALERT_ENABLED] = enabled
+            prefs[SPEED_LIMIT] = limit
         }
     }
 

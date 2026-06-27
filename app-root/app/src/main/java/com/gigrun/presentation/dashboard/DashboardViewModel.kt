@@ -28,7 +28,10 @@ data class DashboardUiState(
     val totalDistanceKm: Double = 0.0,
     val breakEvenTarget: Double = 0.0,
     val isShiftActive: Boolean = false,
-    val currentFsmState: String = "IDLE"
+    val currentFsmState: String = "IDLE",
+    val ridingScore: Int = 100,
+    val ridingTip: String = "No data yet",
+    val speedAlertLimit: Double = 80.0
 )
 
 @HiltViewModel
@@ -82,6 +85,7 @@ class DashboardViewModel @Inject constructor(
             val fixedCosts = prefs.dailyFixedCosts.first()
             val breakEvenTarget = fuelCost + fixedCosts
             val isActive = shiftDao.getActiveShift() != null
+            val speedLimit = prefs.speedLimit.first()
 
             _uiState.value = DashboardUiState(
                 totalEarned = totalEarnings, fuelCost = fuelCost, netEarned = netEarned,
@@ -89,7 +93,8 @@ class DashboardViewModel @Inject constructor(
                 ridingTimeMinutes = ridingTimeMin, grossPerHour = grossPerHour,
                 netPerHour = netPerHour, tripsCompleted = tripCount,
                 avgEarningPerTrip = avgPerTrip, totalDistanceKm = totalDistance,
-                breakEvenTarget = breakEvenTarget, isShiftActive = isActive
+                breakEvenTarget = breakEvenTarget, isShiftActive = isActive,
+                speedAlertLimit = speedLimit
             )
         }
     }

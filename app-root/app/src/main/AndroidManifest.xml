@@ -19,6 +19,9 @@
     <!-- SMS — crash detection emergency dispatch only -->
     <uses-permission android:name="android.permission.SEND_SMS"/>
 
+    <!-- Internet — weather API -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+
     <!-- Sensor — accelerometer for crash detection -->
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false"/>
 

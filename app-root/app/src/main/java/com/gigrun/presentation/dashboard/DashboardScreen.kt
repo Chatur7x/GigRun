@@ -110,6 +110,35 @@ fun DashboardScreen(viewModel: DashboardViewModel = hiltViewModel()) {
 
         Spacer(Modifier.height(20.dp))
 
+        // ── Riding Score ───────────────────────────
+        Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), color = c.secondaryGroupedBackground) {
+            Column(Modifier.padding(20.dp)) {
+                Row(Modifier.fillMaxWidth(), Arrangement.SpaceBetween, Alignment.CenterVertically) {
+                    Text("Riding Score", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = c.label)
+                    Text("${state.ridingScore}", fontSize = 28.sp, fontWeight = FontWeight.Black,
+                        color = when {
+                            state.ridingScore >= 80 -> c.green
+                            state.ridingScore >= 60 -> c.orange
+                            else -> c.red
+                        }
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(state.ridingTip, fontSize = 12.sp, color = c.secondaryLabel)
+                Spacer(Modifier.height(8.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (state.ridingScore < 90) {
+                        InfoPill("Harsh braking", c.red)
+                    }
+                    if (state.ridingScore < 100) {
+                        Text("Speed limit: ${state.speedAlertLimit.toInt()} km/h", fontSize = 11.sp, color = c.gray)
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(20.dp))
+
         // ── Break-Even ─────────────────────────────
         Surface(Modifier.fillMaxWidth(), RoundedCornerShape(14.dp), color = c.secondaryGroupedBackground) {
             Column(Modifier.padding(20.dp), horizontalAlignment = Alignment.CenterHorizontally) {
