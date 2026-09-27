@@ -1,9 +1,13 @@
 package com.gigrun.data.database.entities
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "service_reminders")
+@Entity(
+    tableName = "service_reminders",
+    indices = [Index(value = ["vehicleName", "reminderType"], unique = true)]
+)
 data class ServiceReminder(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val vehicleName: String,

@@ -4,6 +4,7 @@ import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import kotlinx.serialization.Serializable
 
 @Entity(
     tableName = "trips",
@@ -13,8 +14,9 @@ import androidx.room.PrimaryKey
         childColumns = ["shiftId"],
         onDelete = ForeignKey.CASCADE
     )],
-    indices = [Index("shiftId")]
+    indices = [Index("shiftId"), Index("startTime"), Index(value = ["platform", "startTime"]), Index(value = ["shiftId", "endTime"])]
 )
+@Serializable
 data class Trip(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val shiftId: Long,
@@ -29,5 +31,12 @@ data class Trip(
     val waitTimeSec: Int = 0,
     val pathEncoded: String? = null,
     val earningInr: Double? = null,
-    val earningRawNotif: String? = null
+    val earningRawNotif: String? = null,
+    // Surge / bonus / tips breakdown
+    val baseFare: Double? = null,
+    val surgeAmount: Double? = null,
+    val bonusAmount: Double? = null,
+    val tipAmount: Double? = null,
+    val surgeReason: String? = null, // e.g. "peak_hour", "rain", "high_demand"
+    val isSurgeTrip: Boolean = false
 )

@@ -25,13 +25,25 @@ class SpeedAlertService(private val context: Context) {
     val alertState: StateFlow<SpeedAlert> = _alertState.asStateFlow()
 
     var speedLimit: Double = 80.0
-    var isEnabled: Boolean = true
+    @Volatile var isEnabled: Boolean = true
 
     private var lastAlertTime = 0L
+    @Volatile private var lastWasOver = false
 
     fun checkSpeed(speedKmh: Double) {
         if (!isEnabled) return
-        if (speedKmh <= speedLimit) return
+        if (speedKmh <= speedLimit) {
+            lastWasOver = false
+            // R&D fix: auto-clear stale alert when back under limit.
+            if (_alertState.value.isAlerting) resetAlert()
+            return
+        }
+        // GPS-glitch filter: a single multipath spike (e.g. 250 km/h under a
+        // flyover) must not beep — require two consecutive over-limit fixes.
+        if (!lastWasOver) {
+            lastWasOver = true
+            return
+        }
 
         val now = System.currentTimeMillis()
         if (now - lastAlertTime < COOLDOWN_MS) return
@@ -48,9 +60,28 @@ class SpeedAlertService(private val context: Context) {
     }
 
     private fun triggerAlert() {
+        // R&D fix: VibratorManager compat (API 31+) + hasVibrator guard + audible beep.
         try {
-            val vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            vibrator.vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
+            val vibrator: Vibrator? = try {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    val vm = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+                    vm?.defaultVibrator
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+                }
+            } catch (_: Exception) { null }
+            if (vibrator?.hasVibrator() == true) {
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createOneShot(300, VibrationEffect.DEFAULT_AMPLITUDE))
+                } else {
+                    @Suppress("DEPRECATION") vibrator.vibrate(300)
+                }
+            }
+        } catch (_: Exception) {}
+        try {
+            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+            RingtoneManager.getRingtone(context, uri)?.play()
         } catch (_: Exception) {}
     }
 

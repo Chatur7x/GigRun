@@ -16,21 +16,40 @@ android {
         applicationId = "com.gigrun"
         minSdk = 28
         targetSdk = 36
-        versionCode = 4
-        versionName = "3.2"
+        versionCode = 7
+        versionName = "7.0"
 
         val localProperties = Properties()
         val localPropertiesFile = rootProject.file("local.properties")
         if (localPropertiesFile.exists()) {
             localProperties.load(FileInputStream(localPropertiesFile))
         }
-        val mapsApiKey = localProperties.getProperty("MAPS_API_KEY") ?: ""
+        val mapsApiKey = System.getenv("MAPS_API_KEY")
+            ?: localProperties.getProperty("MAPS_API_KEY")?.takeIf { it.isNotBlank() && it != "YOUR_API_KEY_HERE" }
+            ?: ""
+        if (mapsApiKey.isBlank()) {
+            logger.warn("MAPS_API_KEY is missing — Maps will render blank. Set env MAPS_API_KEY or local.properties.")
+        }
         manifestPlaceholders["MAPS_API_KEY"] = mapsApiKey
+    }
+
+    signingConfigs {
+        create("release") {
+            // Never commit a keystore: all four come from env/CI secrets.
+            val ks = System.getenv("GIGRUN_KEYSTORE") ?: return@create
+            storeFile = file(ks)
+            storePassword = System.getenv("GIGRUN_STORE_PASSWORD")
+            keyAlias = System.getenv("GIGRUN_KEY_ALIAS")
+            keyPassword = System.getenv("GIGRUN_KEY_PASSWORD")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")?.takeIf {
+                it.storeFile?.exists() == true
+            } ?: signingConfigs.getByName("debug")
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -54,6 +73,11 @@ kotlin {
     jvmToolchain(17)
 }
 
+ksp {
+    // Room exportSchema=true requires a schema dir (feeds future Migrations).
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 dependencies {
   val composeBom = platform(libs.androidx.compose.bom)
   implementation(composeBom)
@@ -74,7 +98,6 @@ dependencies {
   implementation(libs.androidx.compose.ui.tooling.preview)
   implementation(libs.androidx.compose.material3)
   implementation(libs.androidx.compose.material.icons.extended)
-  implementation(libs.androidx.compose.ui.text.google.fonts)
   debugImplementation(libs.androidx.compose.ui.tooling)
   androidTestImplementation(libs.androidx.compose.ui.test.junit4)
   debugImplementation(libs.androidx.compose.ui.test.manifest)
@@ -105,6 +128,10 @@ dependencies {
 
   // Serialization
   implementation(libs.kotlinx.serialization.json)
+
+  // ML Kit Text Recognition
+  implementation(libs.play.services.mlkit.text.recognition)
+  implementation(libs.kotlinx.coroutines.play.services)
 
   // Testing
   testImplementation(libs.junit)

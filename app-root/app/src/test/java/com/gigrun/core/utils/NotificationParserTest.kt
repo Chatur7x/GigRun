@@ -60,4 +60,67 @@ class NotificationParserTest {
 
         assertEquals(NotificationParser.Platform.UNKNOWN, result.platform)
     }
+
+    @Test
+    fun parse_surgeSplit_computesBaseFare() {
+        val result = NotificationParser.parse(
+            "com.rapido.captain", "Ride Completed",
+            "You earned ₹120. Surge ₹15. Tip ₹10. Peak hour bonus."
+        )
+        assertEquals(120.0, result.amount ?: 0.0, 0.001)
+        assertEquals(15.0, result.surgeAmount ?: 0.0, 0.001)
+        assertEquals(10.0, result.tipAmount ?: 0.0, 0.001)
+        assertEquals(95.0, result.baseFare ?: 0.0, 0.001)
+        assertEquals("peak_hour", result.surgeReason)
+    }
+
+    @Test
+    fun parse_commaGroupedFare_parses() {
+        val result = NotificationParser.parse(
+            "com.blinkit.delivery", "Order Completed",
+            "You have earned ₹1,250 for this delivery."
+        )
+        assertEquals(1250.0, result.amount ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun parse_nonEarningsWithAmount_returnsNullAmount() {
+        val result = NotificationParser.parse(
+            "com.rapido.captain", "New ride",
+            "Pickup in 5 min, trip shows ₹120 estimate. Go to customer."
+        )
+        // "go to" is an order keyword, not earnings — amount must stay null.
+        assertFalse(result.isEarnings)
+        assertNull(result.amount)
+    }
+
+    @Test
+    fun parse_riderReceipt_neverEarnings() {
+        val result = NotificationParser.parse(
+            "com.rapido.passenger", "Thanks for riding!",
+            "Payment of ₹150 completed. Your receipt is ready."
+        )
+        assertFalse(result.isEarnings)
+        assertNull(result.amount)
+    }
+
+    @Test
+    fun parse_promoCopy_prefersKeywordAnchoredFare() {
+        // "saved ₹200" is promo; "earned ₹50" is the fare — max must not win.
+        val result = NotificationParser.parse(
+            "com.blinkit.delivery", "Order delivered!",
+            "You saved ₹200 on this order. Cashback earned ₹50"
+        )
+        assertTrue(result.isEarnings)
+        assertEquals(50.0, result.amount ?: 0.0, 0.001)
+    }
+
+    @Test
+    fun parse_starRating_notFare() {
+        val result = NotificationParser.parse(
+            "com.ubercab.driver", "Weekly rating",
+            "You earned 5 stars this week! Rating bonus inside"
+        )
+        assertNull(result.amount)
+    }
 }

@@ -18,11 +18,13 @@ object HaversineCalculator {
      * Returns distance in meters between two lat/lon pairs.
      */
     fun distanceInMeters(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        if (!lat1.isFinite() || !lon1.isFinite() || !lat2.isFinite() || !lon2.isFinite()) return 0.0
         val dLat = Math.toRadians(lat2 - lat1)
         val dLon = Math.toRadians(lon2 - lon1)
-        val a = sin(dLat / 2).pow(2) +
+        // Clamp: float error on near-antipodal pairs pushes a > 1 → asin(NaN) → NaN distance.
+        val a = (sin(dLat / 2).pow(2) +
                 cos(Math.toRadians(lat1)) * cos(Math.toRadians(lat2)) *
-                sin(dLon / 2).pow(2)
+                sin(dLon / 2).pow(2)).coerceIn(0.0, 1.0)
         val c = 2 * asin(sqrt(a))
         return EARTH_RADIUS_M * c
     }

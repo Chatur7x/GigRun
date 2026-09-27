@@ -17,21 +17,39 @@ import androidx.compose.ui.unit.sp
 import com.gigrun.ui.theme.Apple
 
 @Composable
-fun BreakEvenMeter(earned: Double, breakEvenTarget: Double, modifier: Modifier = Modifier) {
+fun BreakEvenMeter(
+    earned: Double,
+    breakEvenTarget: Double,
+    compact: Boolean = false,
+    modifier: Modifier = Modifier
+) {
     val c = Apple.colors
     val progress = if (breakEvenTarget > 0) (earned / breakEvenTarget).coerceIn(0.0, 1.5) else 0.0
     val animatedProgress by animateFloatAsState(
         targetValue = progress.toFloat(),
         animationSpec = tween(durationMillis = 1000, easing = FastOutSlowInEasing), label = "bp"
     )
-    val arcColor = when { progress >= 1.0 -> c.green; progress >= 0.6 -> c.orange; else -> c.red }
-    val statusText = when { progress >= 1.0 -> "In Profit"; progress >= 0.8 -> "Almost There"; else -> "Below Break-Even" }
+    val arcColor = when {
+        progress >= 1.0 -> c.green
+        progress >= 0.6 -> c.orange
+        else -> c.red
+    }
+    val statusText = when {
+        progress >= 1.0 -> "In Profit"
+        progress >= 0.6 -> "Almost There"
+        else -> "Below target"
+    }
+
+    val containerSize = if (compact) 100.dp else 150.dp
+    val canvasSize = if (compact) 85.dp else 130.dp
+    val strokeWidth = if (compact) 6.dp else 10.dp
+    val percentageFontSize = if (compact) 18.sp else 28.sp
 
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier) {
-        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(150.dp)) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.size(containerSize)) {
             val trackColor = c.gray4
-            Canvas(Modifier.size(130.dp)) {
-                val sw = 10.dp.toPx()
+            Canvas(Modifier.size(canvasSize)) {
+                val sw = strokeWidth.toPx()
                 drawArc(
                     color = trackColor,
                     startAngle = 135f,
@@ -44,7 +62,7 @@ fun BreakEvenMeter(earned: Double, breakEvenTarget: Double, modifier: Modifier =
                 drawArc(
                     color = arcColor,
                     startAngle = 135f,
-                    sweepAngle = 270f * animatedProgress.coerceAtMost(1f),
+                    sweepAngle = 270f * animatedProgress.coerceAtMost(1f).toFloat(),
                     useCenter = false,
                     topLeft = Offset(sw / 2, sw / 2),
                     size = Size(size.width - sw, size.height - sw),
@@ -52,11 +70,15 @@ fun BreakEvenMeter(earned: Double, breakEvenTarget: Double, modifier: Modifier =
                 )
             }
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text("${(progress * 100).toInt()}%", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = arcColor)
-                Text(statusText, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = c.secondaryLabel)
+                Text("${(progress * 100).toInt()}%", fontSize = percentageFontSize, fontWeight = FontWeight.Bold, color = arcColor)
+                if (!compact) {
+                    Text(statusText, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = c.secondaryLabel)
+                }
             }
         }
-        Spacer(Modifier.height(6.dp))
-        Text("₹${earned.toInt()} / ₹${breakEvenTarget.toInt()}", fontSize = 15.sp, color = c.secondaryLabel)
+        if (!compact) {
+            Spacer(Modifier.height(6.dp))
+            Text("₹${earned.toInt()} / ₹${breakEvenTarget.toInt()}", fontSize = 15.sp, color = c.secondaryLabel)
+        }
     }
 }

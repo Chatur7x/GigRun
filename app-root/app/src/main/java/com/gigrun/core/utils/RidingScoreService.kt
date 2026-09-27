@@ -22,9 +22,13 @@ class RidingScoreService : SensorEventListener {
 
     companion object {
         private const val GRAVITY = 9.81f
-        private const val BRAKING_THRESHOLD = 15.0
-        private const val ACCELERATION_THRESHOLD = 12.0
-        private const val TURN_THRESHOLD = 18.0
+        // Calibrated on the dynamic (|totalG − gravity|) component — idle sits ~0,
+        // so these fire on real events, not on gravity bias.
+        // NOTE: assumes a fixed phone mount; a rotated mount swaps axes. Mount
+        // portrait-up for rated accuracy.
+        private const val BRAKING_THRESHOLD = 5.5
+        private const val ACCELERATION_THRESHOLD = 4.0
+        private const val TURN_THRESHOLD = 8.0
         private const val SCORE_WINDOW_MS = 60_000L
         private const val EVENT_COOLDOWN_MS = 500L
     }
@@ -36,6 +40,7 @@ class RidingScoreService : SensorEventListener {
     private var isMonitoring = false
     private var lastSpeed = 0.0
     private var lastEventTime = 0L
+    private var windowStartMs = 0L
 
     fun start(sensorManager: SensorManager) {
         if (isMonitoring) return
@@ -54,6 +59,11 @@ class RidingScoreService : SensorEventListener {
         sensorManager = null
     }
 
+    /**
+     * Feed GPS speed (km/h). Contract: call on every location fix — harsh-braking
+     * detection requires lastSpeed > 10, so a caller that never feeds speed pins
+     * braking at zero and the score reads optimistically high.
+     */
     fun updateSpeed(speedKmh: Double) {
         lastSpeed = speedKmh
     }
@@ -61,25 +71,40 @@ class RidingScoreService : SensorEventListener {
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type != Sensor.TYPE_ACCELEROMETER) return
         if (!isMonitoring) return
+        val values = event.values
+        if (values == null || values.size < 3) return
 
         val now = System.currentTimeMillis()
         if (now - lastEventTime < EVENT_COOLDOWN_MS) return
 
-        val x = event.values[0].toDouble()
-        val y = event.values[1].toDouble()
-        val z = event.values[2].toDouble()
-        val magnitude = abs(x) + abs(y) + abs(z)
+        val x = values[0].toDouble()
+        val y = values[1].toDouble()
+        val z = values[2].toDouble()
+        // Dynamic component: |totalG − gravity|. Idle ≈ 0 regardless of orientation.
+        val totalG = sqrt(x * x + y * y + z * z)
+        val dynamic = kotlin.math.abs(totalG - GRAVITY)
 
         var type: String? = null
         when {
-            magnitude > BRAKING_THRESHOLD && lastSpeed > 10.0 -> type = "harsh_braking"
-            magnitude > ACCELERATION_THRESHOLD && y < -ACCELERATION_THRESHOLD -> type = "harsh_acceleration"
-            abs(x) > TURN_THRESHOLD -> type = "sharp_turn"
+            dynamic > BRAKING_THRESHOLD && lastSpeed > 10.0 -> type = "harsh_braking"
+            dynamic > ACCELERATION_THRESHOLD && y < -ACCELERATION_THRESHOLD -> type = "harsh_acceleration"
+            abs(x) > TURN_THRESHOLD && dynamic > 2.0 -> type = "sharp_turn"
         }
 
         if (type != null) {
             lastEventTime = now
-            val current = _score.value
+            // Per-window decay: halve stale counts each SCORE_WINDOW so a 10-hour
+            // shift with early events doesn't trend to 0 while riding clean now.
+            if (windowStartMs == 0L) windowStartMs = now
+            var current = _score.value
+            if (now - windowStartMs >= SCORE_WINDOW_MS) {
+                windowStartMs = now
+                current = current.copy(
+                    harshBrakingCount = current.harshBrakingCount / 2,
+                    harshAccelerationCount = current.harshAccelerationCount / 2,
+                    sharpTurnCount = current.sharpTurnCount / 2
+                )
+            }
             _score.value = current.copy(
                 harshBrakingCount = if (type == "harsh_braking") current.harshBrakingCount + 1 else current.harshBrakingCount,
                 harshAccelerationCount = if (type == "harsh_acceleration") current.harshAccelerationCount + 1 else current.harshAccelerationCount,
@@ -106,6 +131,7 @@ class RidingScoreService : SensorEventListener {
 
     fun reset() {
         _score.value = RidingScore()
+        windowStartMs = 0L
     }
 
     fun getRidingTip(): String {

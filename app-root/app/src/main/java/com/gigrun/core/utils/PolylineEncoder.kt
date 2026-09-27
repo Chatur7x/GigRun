@@ -1,5 +1,7 @@
 package com.gigrun.core.utils
 
+import kotlin.math.roundToInt
+
 /**
  * Encodes and decodes lists of GPS coordinates into compact polyline strings
  * using the Google Encoded Polyline Algorithm Format.
@@ -17,8 +19,10 @@ object PolylineEncoder {
         var prevLng = 0
 
         for ((lat, lng) in points) {
-            val iLat = (lat * 1e5).toInt()
-            val iLng = (lng * 1e5).toInt()
+            // Guard: non-finite or out-of-range GPS silently encoded to garbage.
+            if (!lat.isFinite() || !lng.isFinite() || lat !in -90.0..90.0 || lng !in -180.0..180.0) continue
+            val iLat = (lat * 1e5).roundToInt()
+            val iLng = (lng * 1e5).roundToInt()
 
             encodeValue(iLat - prevLat, result)
             encodeValue(iLng - prevLng, result)
@@ -34,6 +38,7 @@ object PolylineEncoder {
      * Decodes a polyline string back into a list of lat/lon pairs.
      */
     fun decode(encoded: String): List<Pair<Double, Double>> {
+        if (encoded.isEmpty()) return emptyList()
         val points = mutableListOf<Pair<Double, Double>>()
         var index = 0
         var lat = 0
@@ -44,6 +49,8 @@ object PolylineEncoder {
             var shift = 0
             var b: Int
             do {
+                if (index >= encoded.length) return points // malformed guard
+                if (shift > 32) return points // hostile run without terminator — bail, don't spin
                 b = encoded[index++].code - 63
                 result = result or ((b and 0x1f) shl shift)
                 shift += 5
@@ -53,6 +60,8 @@ object PolylineEncoder {
             result = 0
             shift = 0
             do {
+                if (index >= encoded.length) return points // malformed guard
+                if (shift > 32) return points // hostile run without terminator — bail, don't spin
                 b = encoded[index++].code - 63
                 result = result or ((b and 0x1f) shl shift)
                 shift += 5

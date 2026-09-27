@@ -12,8 +12,12 @@ interface EarningDao {
     @Update
     suspend fun update(earning: Earning)
 
-    @Query("SELECT * FROM earnings WHERE tripId = :tripId")
+    @Query("SELECT * FROM earnings WHERE tripId = :tripId ORDER BY timestamp ASC")
     fun getEarningsForTrip(tripId: Long): Flow<List<Earning>>
+
+    /** Idempotency probe: same trip + same fare within the window → re-post, skip. */
+    @Query("SELECT COUNT(*) FROM earnings WHERE tripId = :tripId AND amountInr = :amount AND timestamp >= :since")
+    suspend fun countSimilar(tripId: Long, amount: Double, since: Long): Int
 
     @Query("SELECT SUM(amountInr) FROM earnings WHERE timestamp >= :startOfDay AND timestamp < :endOfDay")
     suspend fun getTotalEarningsForDay(startOfDay: Long, endOfDay: Long): Double?

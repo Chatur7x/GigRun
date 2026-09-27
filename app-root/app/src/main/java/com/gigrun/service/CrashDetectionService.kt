@@ -8,13 +8,17 @@ import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.media.AudioAttributes
+import android.media.Ringtone
 import android.media.RingtoneManager
+import android.os.Build
 import android.os.IBinder
 import android.os.VibrationEffect
 import android.os.Vibrator
+import android.os.VibratorManager
 import android.telephony.SmsManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
 import com.gigrun.data.preferences.UserPreferences
 import com.google.android.gms.location.*
 import kotlinx.coroutines.*
@@ -57,20 +61,21 @@ class CrashDetectionService : Service(), SensorEventListener {
     private var gForceThreshold = 4.0
     private var isTestMode = false
 
-    // Crash detection state
-    private var spikeDetectedTime: Long? = null
-    private var lastHighVelocityTime: Long? = null
-    private var velocityDropDetected = false
-    private var stillnessStartTime: Long? = null
-    private var isStill = false
-    private var lastKnownLat: Double? = null
-    private var lastKnownLon: Double? = null
-    private var lastSpeed: Float = 0f
+    // Crash detection state (written on location/sensor threads, read on IO)
+    @Volatile private var spikeDetectedTime: Long? = null
+    @Volatile private var lastHighVelocityTime: Long? = null
+    @Volatile private var velocityDropDetected = false
+    @Volatile private var stillnessStartTime: Long? = null
+    @Volatile private var isStill = false
+    @Volatile private var lastKnownLat: Double? = null
+    @Volatile private var lastKnownLon: Double? = null
+    @Volatile private var lastSpeed: Float = 0f
 
     // Countdown state
     private var countdownJob: Job? = null
-    private var isCountdownActive = false
+    @Volatile private var isCountdownActive = false
     private var locationCallback: LocationCallback? = null
+    private var alarmRingtone: Ringtone? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -86,6 +91,11 @@ class CrashDetectionService : Service(), SensorEventListener {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // Re-read the threshold on every start: Settings can change it (or clamp
+        // it) while the monitor runs — never evaluate spikes against a stale G.
+        serviceScope.launch {
+            try { gForceThreshold = userPreferences.gForceThreshold.first() } catch (_: Exception) {}
+        }
         when (intent?.action) {
             ACTION_CANCEL_COUNTDOWN -> {
                 cancelCountdown()
@@ -105,7 +115,10 @@ class CrashDetectionService : Service(), SensorEventListener {
             .setOngoing(true)
             .build()
 
-        startForeground(NOTIFICATION_ID, notification)
+        ServiceCompat.startForeground(
+            this, NOTIFICATION_ID, notification,
+            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+        )
         startAccelerometerMonitoring()
         startLocationMonitoring()
 
@@ -114,17 +127,31 @@ class CrashDetectionService : Service(), SensorEventListener {
 
     private fun startAccelerometerMonitoring() {
         val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
-        accelerometer?.let {
-            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+        if (accelerometer == null) {
+            Log.w(TAG, "no accelerometer on this device — crash detection inactive")
+            return
         }
+        sensorManager.registerListener(this, accelerometer, SensorManager.SENSOR_DELAY_GAME)
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        return androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED ||
+                androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == android.content.pm.PackageManager.PERMISSION_GRANTED
     }
 
     @Suppress("MissingPermission")
     private fun startLocationMonitoring() {
+        // Never request GPS without runtime permission — revoked permission while the
+        // monitor runs used to throw SecurityException on the main thread.
+        if (!hasLocationPermission()) {
+            Log.w(TAG, "Location permission missing — crash GPS monitoring paused")
+            return
+        }
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, 1_000L).build()
         val callback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 result.lastLocation?.let { loc ->
+                    if (loc.isFromMockProvider) return
                     lastKnownLat = loc.latitude
                     lastKnownLon = loc.longitude
                     val currentSpeed = loc.speed * 3.6f // m/s to km/h
@@ -134,9 +161,11 @@ class CrashDetectionService : Service(), SensorEventListener {
                         lastHighVelocityTime = System.currentTimeMillis()
                     }
 
-                    // Check for velocity drop
-                    if (spikeDetectedTime != null && lastHighVelocityTime != null) {
-                        val timeSinceSpike = System.currentTimeMillis() - spikeDetectedTime!!
+                    // Check for velocity drop (local copies — fields mutate on sensor thread)
+                    val spikeT = spikeDetectedTime
+                    val highV = lastHighVelocityTime
+                    if (spikeT != null && highV != null) {
+                        val timeSinceSpike = System.currentTimeMillis() - spikeT
                         if (timeSinceSpike <= SPIKE_WINDOW_MS && currentSpeed < VELOCITY_LOW_THRESHOLD_KMH) {
                             velocityDropDetected = true
                         }
@@ -144,8 +173,8 @@ class CrashDetectionService : Service(), SensorEventListener {
 
                     // Stillness detection
                     if (currentSpeed < 2.0) {
-                        if (stillnessStartTime == null) stillnessStartTime = System.currentTimeMillis()
-                        val stillDuration = System.currentTimeMillis() - stillnessStartTime!!
+                        val stillT = stillnessStartTime ?: System.currentTimeMillis().also { stillnessStartTime = it }
+                        val stillDuration = System.currentTimeMillis() - stillT
                         isStill = stillDuration >= STILLNESS_DURATION_MS
                     } else {
                         stillnessStartTime = null
@@ -166,10 +195,12 @@ class CrashDetectionService : Service(), SensorEventListener {
     override fun onSensorChanged(event: SensorEvent?) {
         if (event?.sensor?.type != Sensor.TYPE_ACCELEROMETER) return
         if (isCountdownActive) return
+        val values = event.values
+        if (values == null || values.size < 3) return
 
-        val x = event.values[0]
-        val y = event.values[1]
-        val z = event.values[2]
+        val x = values[0]
+        val y = values[1]
+        val z = values[2]
         val totalG = sqrt((x * x + y * y + z * z).toDouble()) / GRAVITY
 
         if (totalG > gForceThreshold) {
@@ -198,45 +229,80 @@ class CrashDetectionService : Service(), SensorEventListener {
         }
     }
 
+    private fun getVibrator(): Vibrator? {
+        return try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val vm = getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? VibratorManager
+                vm?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                getSystemService(VIBRATOR_SERVICE) as? Vibrator
+            }
+        } catch (_: Exception) { null }
+    }
+
     private fun triggerCrashCountdown() {
         if (isCountdownActive) return
         isCountdownActive = true
 
-        // Sound alarm
+        // Sound alarm (R&D fix: keep reference so cancel/stop actually silences it)
         try {
+            stopAlarm()
             val alarmUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-            val ringtone = RingtoneManager.getRingtone(this, alarmUri)
-            ringtone?.play()
+            alarmRingtone = RingtoneManager.getRingtone(this, alarmUri)
+            alarmRingtone?.play()
         } catch (_: Exception) {}
 
-        // Vibrate
-        val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
-        vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), 0))
+        // Vibrate (R&D fix: compat + hasVibrator guard)
+        try {
+            val vibrator = getVibrator()
+            if (vibrator?.hasVibrator() == true) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    vibrator.vibrate(VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500), 0))
+                } else {
+                    @Suppress("DEPRECATION")
+                    vibrator.vibrate(longArrayOf(0, 500, 200, 500), 0)
+                }
+            }
+        } catch (_: Exception) {}
 
         // Start countdown
         countdownJob = serviceScope.launch {
-            for (i in COUNTDOWN_SECONDS downTo 1) {
-                updateCountdownNotification(i)
-                delay(1000L)
+            try {
+                for (i in COUNTDOWN_SECONDS downTo 1) {
+                    updateCountdownNotification(i)
+                    delay(1000L)
+                }
+                // Countdown finished — send emergency SMS
+                if (!isTestMode) {
+                    sendEmergencySms()
+                }
+            } finally {
+                stopAlarm()
+                isCountdownActive = false
+                isTestMode = false
+                resetCrashState()
             }
-            // Countdown finished — send emergency SMS
-            if (!isTestMode) {
-                sendEmergencySms()
-            }
-            isCountdownActive = false
-            isTestMode = false
-            resetCrashState()
         }
     }
 
+    private fun stopAlarm() {
+        try { alarmRingtone?.stop() } catch (_: Exception) {}
+        alarmRingtone = null
+        try { getVibrator()?.cancel() } catch (_: Exception) {}
+    }
+
     private fun cancelCountdown() {
+        val wasTest = isTestMode
         countdownJob?.cancel()
+        countdownJob = null
         isCountdownActive = false
         isTestMode = false
         resetCrashState()
-
-        val vibrator = getSystemService(VIBRATOR_SERVICE) as Vibrator
-        vibrator.cancel()
+        stopAlarm()
+        // Test-mode runs have no shift to protect — don't leave a 1 s GPS
+        // foreground service running forever after the demo.
+        if (wasTest) stopSelf()
 
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         nm.notify(NOTIFICATION_ID, NotificationCompat.Builder(this, CHANNEL_ID)
@@ -256,21 +322,62 @@ class CrashDetectionService : Service(), SensorEventListener {
 
     @Suppress("MissingPermission")
     private suspend fun sendEmergencySms() {
+        // R&D fix: runtime SEND_SMS guard (suppressed lint is not a runtime check).
+        if (androidx.core.content.ContextCompat.checkSelfPermission(this, android.Manifest.permission.SEND_SMS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "SEND_SMS not granted — skipping emergency SMS")
+            return
+        }
+        // Re-validate at send time: a rooted prefs edit bypasses the setter.
         val contacts = userPreferences.emergencyContacts.first()
-        val lat = lastKnownLat ?: 0.0
-        val lon = lastKnownLon ?: 0.0
+            .filter { it.isNotBlank() && com.gigrun.core.utils.PrefsValidation.isSafeContact(it) }
+        if (contacts.isEmpty()) {
+            Log.w(TAG, "No valid emergency contacts — skipping SMS")
+            return
+        }
+        // Dispatch cooldown: stop-and-go traffic must not SMS every red light.
+        val now0 = System.currentTimeMillis()
+        if (now0 - userPreferences.getLastCrashSms() < 10 * 60_000L) {
+            Log.w(TAG, "Crash SMS cooldown active — skipping duplicate dispatch")
+            return
+        }
+        val lat = lastKnownLat
+        val lon = lastKnownLon
+        val locationPart = if (lat != null && lon != null) {
+            "Last known location: https://maps.google.com/?q=$lat,$lon "
+        } else {
+            "Last known location: unknown (no GPS fix yet). "
+        }
         val message = "EMERGENCY — GigRun detected a possible crash. " +
-                "Last known location: https://maps.google.com/?q=$lat,$lon " +
+                locationPart +
                 "Time: ${java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())}"
 
         try {
-            val smsManager = getSystemService(SmsManager::class.java)
-            for (contact in contacts) {
-                smsManager.sendTextMessage(contact, null, message, null, null)
-                Log.i(TAG, "Emergency SMS sent to $contact")
+            // R&D fix: API 28–30 compat (getSystemService(SmsManager) is API 31+).
+            val smsManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                getSystemService(SmsManager::class.java)
+            } else {
+                @Suppress("DEPRECATION") SmsManager.getDefault()
             }
+            for (contact in contacts) {
+                try {
+                    // Split long URL SMS into parts to avoid truncation.
+                    val parts = smsManager.divideMessage(message)
+                    if (parts.size <= 1) {
+                        smsManager.sendTextMessage(contact, null, message, null, null)
+                    } else {
+                        smsManager.sendMultipartTextMessage(contact, null, parts, null, null)
+                    }
+                    // Number redacted: contact PII stays out of logcat.
+                    Log.i(TAG, "Emergency SMS sent")
+                } catch (e: Exception) { Log.e(TAG, "SMS send failed", e) }
+            }
+            // Cooldown starts on dispatch attempt, not per-contact success.
+            userPreferences.noteCrashSms(now0)
         } catch (e: Exception) {
             Log.e(TAG, "Failed to send emergency SMS", e)
+        } finally {
+            // R&D fix: stop repeating vibration after dispatch.
+            try { getVibrator()?.cancel() } catch (_: Exception) {}
         }
     }
 
@@ -316,8 +423,11 @@ class CrashDetectionService : Service(), SensorEventListener {
     }
 
     override fun onDestroy() {
+        countdownJob?.cancel()
+        countdownJob = null
+        stopAlarm()
         sensorManager.unregisterListener(this)
-        locationCallback?.let { fusedLocationClient.removeLocationUpdates(it) }
+        locationCallback?.let { try { fusedLocationClient.removeLocationUpdates(it) } catch (_: Exception) {} }
         serviceScope.cancel()
         super.onDestroy()
     }

@@ -16,10 +16,20 @@
     <!-- Notifications — send maintenance and crash alerts -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 
+    <!-- Vibrator — speed + crash haptics -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
+
+    <!-- Battery — request ignore-optimizations for reliable background tracking -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"/>
+
+    <!-- Boot — reschedule maintenance worker after reboot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
     <!-- SMS — crash detection emergency dispatch only -->
     <uses-permission android:name="android.permission.SEND_SMS"/>
+    <uses-feature android:name="android.hardware.telephony" android:required="false"/>
 
-    <!-- Internet — weather API -->
+    <!-- Internet — Maps tiles, ML Kit model fetch, Play Services (no weather API exists) -->
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <!-- Sensor — accelerometer for crash detection -->
@@ -68,6 +78,15 @@
                 <action android:name="android.service.notification.NotificationListenerService"/>
             </intent-filter>
         </service>
+
+        <!-- Boot receiver — reschedule maintenance check after reboot -->
+        <receiver
+            android:name=".service.BootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

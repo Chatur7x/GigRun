@@ -30,6 +30,41 @@ interface TripDao {
     @Query("SELECT * FROM trips WHERE endTime IS NULL AND shiftId = :shiftId LIMIT 1")
     suspend fun getActiveTrip(shiftId: Long): Trip?
 
+    @Query("SELECT * FROM trips WHERE shiftId = :shiftId ORDER BY startTime DESC LIMIT 1")
+    suspend fun getLatestTripForShift(shiftId: Long): Trip?
+
+    data class DayTotals(
+        val earnings: Double?,
+        val distance: Double?,
+        val waitSec: Int?,
+        val count: Int
+    )
+
+    @Query("SELECT SUM(earningInr) AS earnings, SUM(distanceKm) AS distance, SUM(waitTimeSec) AS waitSec, COUNT(*) AS count FROM trips WHERE startTime >= :s AND startTime < :e")
+    suspend fun getDayTotals(s: Long, e: Long): DayTotals
+
+    data class SurgeTotals(
+        val surge: Double?,
+        val bonus: Double?,
+        val tip: Double?
+    )
+
+    @Query("SELECT SUM(surgeAmount) AS surge, SUM(bonusAmount) AS bonus, SUM(tipAmount) AS tip FROM trips WHERE startTime >= :s AND startTime < :e")
+    suspend fun getSurgeTotals(s: Long, e: Long): SurgeTotals
+
+    @Query("SELECT * FROM trips WHERE endTime IS NULL")
+    suspend fun getAllOpenTrips(): List<Trip>
+
+    /**
+     * Atomic trip-update + earning-insert: the FSM can create a new trip between
+     * a separate read and write — this keeps fare attribution on one trip row.
+     */
+    @Transaction
+    suspend fun attachEarning(trip: Trip, earningDao: EarningDao, earning: com.gigrun.data.database.entities.Earning) {
+        update(trip)
+        earningDao.insert(earning)
+    }
+
     @Query("SELECT COUNT(*) FROM trips WHERE startTime >= :startOfDay AND startTime < :endOfDay")
     suspend fun getTripCountForDay(startOfDay: Long, endOfDay: Long): Int
 

@@ -13,7 +13,7 @@ import androidx.room.PrimaryKey
         childColumns = ["tripId"],
         onDelete = ForeignKey.CASCADE
     )],
-    indices = [Index("tripId")]
+    indices = [Index("tripId"), Index("timestamp"), Index(value = ["platform", "timestamp"])]
 )
 data class Earning(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,

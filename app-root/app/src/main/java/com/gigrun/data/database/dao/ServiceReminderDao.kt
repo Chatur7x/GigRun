@@ -6,7 +6,13 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ServiceReminderDao {
-    @Insert
+    /**
+     * The (vehicleName, reminderType) unique index means one "last done" row
+     * per reminder kind per vehicle. A concurrent duplicate insert therefore
+     * resolves to "overwrite the old reading" instead of crashing the caller
+     * with a SQLiteConstraintException — the semantically correct outcome.
+     */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(reminder: ServiceReminder): Long
 
     @Update

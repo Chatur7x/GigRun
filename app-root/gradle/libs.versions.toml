@@ -24,6 +24,8 @@ kotlinxSerializationJson = "1.8.1"
 navigationCompose = "2.9.0"
 playServicesMaps = "19.0.0"
 mapsCompose = "6.1.2"
+mlkitTextRecognition = "19.0.0"
+coroutinesPlayServices = "1.10.2"
 composeGoogleFonts = "1.7.8"
 
 [libraries]
@@ -74,6 +76,8 @@ androidx-work-runtime-ktx = { module = "androidx.work:work-runtime-ktx", version
 play-services-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServicesLocation" }
 play-services-maps = { module = "com.google.android.gms:play-services-maps", version.ref = "playServicesMaps" }
 maps-compose = { module = "com.google.maps.android:maps-compose", version.ref = "mapsCompose" }
+play-services-mlkit-text-recognition = { module = "com.google.android.gms:play-services-mlkit-text-recognition", version.ref = "mlkitTextRecognition" }
+kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "coroutinesPlayServices" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "androidGradlePlugin" }

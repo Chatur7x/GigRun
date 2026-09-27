@@ -10,12 +10,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -24,16 +25,15 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.gigrun.service.CrashDetectionService
-import com.gigrun.ui.theme.*
+import com.gigrun.ui.design.LocalGigRunColors
 import kotlinx.coroutines.delay
 
 /**
- * Full-screen crash countdown overlay.
- * Displayed when CrashDetectionService detects a potential crash event.
- * Sends cancel broadcast to CrashDetectionService when user presses "I'm OK".
+ * Full-screen crash countdown overlay using GigRun color styling.
  */
 @Composable
 fun CrashCountdownOverlay() {
+    val c = LocalGigRunColors.current
     var showOverlay by remember { mutableStateOf(false) }
     var countdownSeconds by remember { mutableIntStateOf(30) }
     val context = LocalContext.current
@@ -73,17 +73,44 @@ fun CrashCountdownOverlay() {
 
         Dialog(onDismissRequest = {}, properties = DialogProperties(usePlatformDefaultWidth = false)) {
             Box(
-                modifier = Modifier.fillMaxSize().background(CyberCrimson.copy(alpha = 0.92f)),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(c.error.copy(alpha = 0.94f)),
                 contentAlignment = Alignment.Center
             ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(32.dp)) {
-                    Text("⚠️ CRASH DETECTED", fontSize = 28.sp, fontWeight = FontWeight.ExtraBold, color = TextPrimary, textAlign = TextAlign.Center)
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(32.dp)
+                ) {
+                    Text(
+                        text = "⚠️ CRASH DETECTED",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = Color.White,
+                        textAlign = TextAlign.Center
+                    )
                     Spacer(Modifier.height(24.dp))
-                    Box(contentAlignment = Alignment.Center, modifier = Modifier.size(160.dp).scale(scale).background(CyberCrimson.copy(alpha = 0.5f), CircleShape)) {
-                        Text("$countdownSeconds", fontSize = 72.sp, fontWeight = FontWeight.Black, color = TextPrimary)
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(160.dp)
+                            .scale(scale)
+                            .background(Color.White.copy(alpha = 0.2f), CircleShape)
+                    ) {
+                        Text(
+                            text = "$countdownSeconds",
+                            fontSize = 72.sp,
+                            fontWeight = FontWeight.Black,
+                            color = Color.White
+                        )
                     }
                     Spacer(Modifier.height(24.dp))
-                    Text("Emergency SMS will be sent\nwhen countdown reaches zero.", fontSize = 16.sp, color = TextPrimary.copy(alpha = 0.85f), textAlign = TextAlign.Center)
+                    Text(
+                        text = "Emergency SMS will be sent\nwhen countdown reaches zero.",
+                        fontSize = 16.sp,
+                        color = Color.White.copy(alpha = 0.9f),
+                        textAlign = TextAlign.Center
+                    )
                     Spacer(Modifier.height(40.dp))
                     Button(
                         onClick = {
@@ -93,13 +120,25 @@ fun CrashCountdownOverlay() {
                             }
                             context.startService(intent)
                         },
-                        modifier = Modifier.fillMaxWidth().height(64.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = EmeraldGreen),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(64.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = c.success),
                         shape = RoundedCornerShape(16.dp)
                     ) {
-                        Icon(Icons.Filled.Close, null, tint = DeepCarbon, modifier = Modifier.size(28.dp))
+                        Icon(
+                            imageVector = Icons.Filled.Check,
+                            contentDescription = "I'm OK",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
                         Spacer(Modifier.width(12.dp))
-                        Text("I'M OK — CANCEL", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = DeepCarbon)
+                        Text(
+                            text = "I'M OK — CANCEL",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = Color.White
+                        )
                     }
                 }
             }

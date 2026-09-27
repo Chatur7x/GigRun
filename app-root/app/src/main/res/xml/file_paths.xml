@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
-    <external-files-path name="external_files" path="." />
+    <external-files-path name="documents" path="Documents/" />
+    <!-- Internal fallback dir used only when external storage is unavailable;
+         without this the share sheet dies with IllegalArgumentException. -->
+    <files-path name="internal" path="." />
 </paths>

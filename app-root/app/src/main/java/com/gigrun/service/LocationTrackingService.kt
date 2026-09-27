@@ -5,9 +5,12 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.PackageManager
 import android.os.*
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.core.app.ServiceCompat
+import androidx.core.content.ContextCompat
 import com.gigrun.R
 import com.gigrun.core.utils.HaversineCalculator
 import com.gigrun.core.utils.PolylineEncoder
@@ -19,6 +22,7 @@ import com.gigrun.data.preferences.UserPreferences
 import com.google.android.gms.location.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Persistent foreground service that handles:
@@ -43,6 +47,10 @@ class LocationTrackingService : Service() {
     }
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // Dedicated flush scope: survives serviceScope.cancel() in onDestroy so the
+    // final trip/shift write always lands (old code launched into the scope it
+    // cancelled on the next line — flush never ran).
+    private val flushScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var fusedLocationClient: FusedLocationProviderClient
     private lateinit var locationCallback: LocationCallback
     private lateinit var userPreferences: UserPreferences
@@ -60,8 +68,13 @@ class LocationTrackingService : Service() {
     private var tripPathPoints = mutableListOf<Pair<Double, Double>>()
     private var accumulatedTripDistance = 0.0
     private var waitStartTime: Long? = null
-    private var isThermalThrottled = false
+    @Volatile private var isThermalThrottled = false
     private var currentIntervalMs = FAST_INTERVAL_MS
+    private var lastFgUpdateMs = 0L
+    private var lastFgState: FsmEngine.State? = null
+    private val stateMutex = kotlinx.coroutines.sync.Mutex()
+    private var pendingDistanceKm = 0.0
+    private var lastDistanceFlushMs = 0L
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -90,11 +103,22 @@ class LocationTrackingService : Service() {
         speedAlertService = SpeedAlertService(this)
 
         createNotificationChannel()
-        registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), Context.RECEIVER_NOT_EXPORTED)
+        } else {
+            @Suppress("UnspecifiedRegisterReceiverFlag")
+            registerReceiver(batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+        }
 
         locationCallback = object : LocationCallback() {
             override fun onLocationResult(result: LocationResult) {
                 result.lastLocation?.let { location ->
+                    // Mock-location guard: rooted/dev-options fake GPS feeding
+                    // 0.49km fixes would mint fraudulent distance and trips.
+                    if (location.isFromMockProvider) {
+                        Log.w(TAG, "dropping mocked location fix")
+                        return
+                    }
                     serviceScope.launch {
                         processLocation(location.latitude, location.longitude, location.speed)
                     }
@@ -110,7 +134,10 @@ class LocationTrackingService : Service() {
                 return START_NOT_STICKY
             }
             else -> {
-                startForeground(NOTIFICATION_ID, buildNotification("Starting tracking..."))
+                ServiceCompat.startForeground(
+                    this, NOTIFICATION_ID, buildNotification("Starting tracking..."),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                )
                 if (!wakeLock.isHeld) wakeLock.acquire(8 * 60 * 60 * 1000L) // 8 hours max
                 fsmEngine.reset()
                 ridingScoreService.start(getSystemService(SENSOR_SERVICE) as android.hardware.SensorManager)
@@ -150,10 +177,28 @@ class LocationTrackingService : Service() {
             val shift = Shift(startTime = System.currentTimeMillis())
             currentShiftId = database.shiftDao().insert(shift)
         }
+        // Close stale open trips orphaned by process death — otherwise they stay
+        // open forever and earnings attach to the wrong trip.
+        try {
+            val now = System.currentTimeMillis()
+            database.tripDao().getAllOpenTrips().forEach { open ->
+                database.tripDao().update(open.copy(endTime = open.endTime ?: now))
+            }
+            currentTripId = null
+        } catch (e: Exception) { Log.w(TAG, "stale trip close failed", e) }
+    }
+
+    private fun hasLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
 
     @Suppress("MissingPermission")
     private fun startLocationUpdates() {
+        if (!hasLocationPermission()) {
+            Log.w(TAG, "Location permission revoked — pausing GPS updates")
+            return
+        }
         val request = LocationRequest.Builder(Priority.PRIORITY_HIGH_ACCURACY, FAST_INTERVAL_MS)
             .setMinUpdateDistanceMeters(5f)
             .build()
@@ -161,27 +206,43 @@ class LocationTrackingService : Service() {
     }
 
     private suspend fun processLocation(lat: Double, lon: Double, speed: Float) {
+        // R&D fix: serialize GPS processing — no overlapping FSM/trip mutations.
+        stateMutex.withLock {
+            processLocationLocked(lat, lon, speed)
+        }
+    }
+
+    private suspend fun processLocationLocked(lat: Double, lon: Double, speed: Float) {
         val result = fsmEngine.processLocation(lat, lon)
         val speedKmh = speed * 3.6
         speedAlertService.checkSpeed(speedKmh)
         ridingScoreService.updateSpeed(speedKmh)
 
-        // Accumulate distance
+        // Accumulate distance (R&D fix: batch DataStore writes — flush ≤1/min or ≥0.5km)
         lastLat?.let { pLat ->
             lastLon?.let { pLon ->
                 val dist = HaversineCalculator.distanceInKm(pLat, pLon, lat, lon)
                 if (dist < 0.5) { // Filter out GPS jumps > 500m
                     accumulatedTripDistance += dist
-                    userPreferences.addDistance(dist)
+                    pendingDistanceKm += dist
+                    val now = System.currentTimeMillis()
+                    if (pendingDistanceKm >= 0.5 || now - lastDistanceFlushMs >= 60_000L) {
+                        val flush = pendingDistanceKm
+                        pendingDistanceKm = 0.0
+                        lastDistanceFlushMs = now
+                        try { userPreferences.addDistance(flush) } catch (e: Exception) { Log.w(TAG, "distance flush failed", e) }
+                    }
                 }
             }
         }
         lastLat = lat
         lastLon = lon
 
-        // Add to current trip path
+        // Add to current trip path (capped: a 30-min customer wait at 5 s/fix would
+        // otherwise grow this list unbounded until encode -> OOM spike).
         if (fsmEngine.currentState == FsmEngine.State.DELIVERING_ORDER ||
             fsmEngine.currentState == FsmEngine.State.UNCLASSIFIED_COMMUTE) {
+            if (tripPathPoints.size >= 2000) tripPathPoints.removeAt(0)
             tripPathPoints.add(Pair(lat, lon))
         }
 
@@ -189,8 +250,19 @@ class LocationTrackingService : Service() {
             handleStateTransition(result, lat, lon)
         }
 
-        // Update notification with current state
-        updateNotification("${fsmEngine.currentState.name} | ${String.format("%.1f", accumulatedTripDistance)} km")
+        // Update notification with current state — throttled: every fix re-issuing
+        // startForeground is IPC + shade churn. Refresh on state change or 30 s.
+        val nowFg = System.currentTimeMillis()
+        if (fsmEngine.currentState != lastFgState || nowFg - lastFgUpdateMs >= 30_000L) {
+            lastFgState = fsmEngine.currentState
+            lastFgUpdateMs = nowFg
+            try {
+                ServiceCompat.startForeground(
+                    this, NOTIFICATION_ID, buildNotification("${fsmEngine.currentState.name} | ${String.format("%.1f", accumulatedTripDistance)} km"),
+                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+                )
+            } catch (e: Exception) { Log.w(TAG, "foreground update failed", e) }
+        }
 
         // Adjust GPS interval based on state (unless thermally throttled)
         if (!isThermalThrottled) {
@@ -231,6 +303,9 @@ class LocationTrackingService : Service() {
 
             FsmEngine.State.ORDER_COMPLETE -> {
                 finishCurrentTrip(lat, lon)
+                // Start the wait clock here too: the transient collapses to
+                // WAITING_AT_STORE on the next fix, which may be 60 s away.
+                if (waitStartTime == null) waitStartTime = System.currentTimeMillis()
             }
 
             FsmEngine.State.UNCLASSIFIED_COMMUTE -> {
@@ -297,6 +372,7 @@ class LocationTrackingService : Service() {
 
     @Suppress("MissingPermission")
     private fun updateLocationInterval(intervalMs: Long) {
+        if (!hasLocationPermission()) return
         currentIntervalMs = intervalMs
         fusedLocationClient.removeLocationUpdates(locationCallback)
         val priority = if (intervalMs <= FAST_INTERVAL_MS) {
@@ -328,9 +404,12 @@ class LocationTrackingService : Service() {
     }
 
     private fun updateNotification(text: String) {
-        val notification = buildNotification(text)
-        val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
-        nm.notify(NOTIFICATION_ID, notification)
+        // Kept for compat; foreground updates go through ServiceCompat.startForeground above.
+        try {
+            val notification = buildNotification(text)
+            val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
+            nm.notify(NOTIFICATION_ID, notification)
+        } catch (e: Exception) { Log.w(TAG, "notify failed", e) }
     }
 
     private fun createNotificationChannel() {
@@ -346,23 +425,54 @@ class LocationTrackingService : Service() {
     }
 
     override fun onDestroy() {
-        runBlocking {
-            withContext(Dispatchers.IO) {
-                finishCurrentTrip(lastLat ?: 0.0, lastLon ?: 0.0)
-                currentShiftId?.let { id ->
-                    database.shiftDao().getShiftById(id)?.let { shift ->
-                        database.shiftDao().update(shift.copy(endTime = System.currentTimeMillis()))
-                    }
+        // Flush in a scope that survives this destroy + NonCancellable + mutex,
+        // so distance/trip/shift writes cannot be cancelled mid-flight.
+        // Never runBlocking on the main thread.
+        val flushKm = pendingDistanceKm
+        val snapshotTripId = currentTripId
+        val snapshotShiftId = currentShiftId
+        val snapshotLat = lastLat
+        val snapshotLon = lastLon
+        val snapshotPath = tripPathPoints.toList()
+        val snapshotDist = accumulatedTripDistance
+        flushScope.launch {
+            try {
+                kotlinx.coroutines.withContext(kotlinx.coroutines.NonCancellable) {
+                    stateMutex.withLock { flushLocked(flushKm, snapshotTripId, snapshotShiftId, snapshotLat, snapshotLon, snapshotPath, snapshotDist) }
                 }
-            }
+            } catch (e: Exception) { Log.w(TAG, "destroy flush failed", e) }
         }
-        fusedLocationClient.removeLocationUpdates(locationCallback)
+        try { fusedLocationClient.removeLocationUpdates(locationCallback) } catch (_: Exception) {}
         try { unregisterReceiver(batteryReceiver) } catch (_: Exception) {}
-        if (wakeLock.isHeld) wakeLock.release()
+        try { if (wakeLock.isHeld) wakeLock.release() } catch (_: Exception) {}
         ridingScoreService.stop()
         serviceScope.cancel()
         super.onDestroy()
     }
+
+    private suspend fun flushLocked(flushKm: Double, tripId: Long?, shiftId: Long?, lat: Double?, lon: Double?, path: List<Pair<Double, Double>>, dist: Double) {
+        try {
+            if (flushKm > 0) userPreferences.addDistance(flushKm)
+        } catch (e: Exception) { Log.w(TAG, "distance flush failed", e) }
+        try {
+            if (tripId != null && lat != null && lon != null) {
+                val trip = database.tripDao().getTripById(tripId)
+                if (trip != null) {
+                    val encodedPath = if (path.size > 1) PolylineEncoder.encode(path) else null
+                    database.tripDao().update(trip.copy(endTime = System.currentTimeMillis(), endLat = lat, endLon = lon, distanceKm = dist, pathEncoded = encodedPath))
+                }
+            }
+        } catch (e: Exception) { Log.w(TAG, "destroy trip flush failed", e) }
+        try {
+            if (shiftId != null) {
+                val shift = database.shiftDao().getShiftById(shiftId)
+                if (shift != null && shift.endTime == null) {
+                    database.shiftDao().update(shift.copy(endTime = System.currentTimeMillis()))
+                }
+            }
+        } catch (e: Exception) { Log.w(TAG, "destroy shift flush failed", e) }
+    }
+
 
     override fun onBind(intent: Intent?): IBinder? = null
 }

@@ -18,13 +18,22 @@ object AppModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
-        return AppDatabase.getInstance(context)
+        val db = AppDatabase.getInstance(context)
+        // Unify the manual service escape hatch with the Hilt singleton.
+        AppDatabase.setInstance(db)
+        return db
     }
 
-    @Provides fun provideShiftDao(db: AppDatabase): ShiftDao = db.shiftDao()
-    @Provides fun provideTripDao(db: AppDatabase): TripDao = db.tripDao()
-    @Provides fun provideEarningDao(db: AppDatabase): EarningDao = db.earningDao()
-    @Provides fun provideServiceReminderDao(db: AppDatabase): ServiceReminderDao = db.serviceReminderDao()
+    @Provides @Singleton fun provideShiftDao(db: AppDatabase): ShiftDao = db.shiftDao()
+    @Provides @Singleton fun provideTripDao(db: AppDatabase): TripDao = db.tripDao()
+    @Provides @Singleton fun provideEarningDao(db: AppDatabase): EarningDao = db.earningDao()
+    @Provides @Singleton fun provideServiceReminderDao(db: AppDatabase): ServiceReminderDao = db.serviceReminderDao()
+    @Provides @Singleton fun provideVehicleDao(db: AppDatabase): VehicleDao = db.vehicleDao()
+    @Provides @Singleton fun provideFuelLogDao(db: AppDatabase): FuelLogDao = db.fuelLogDao()
+    @Provides @Singleton fun provideBlockDao(db: AppDatabase): BlockDao = db.blockDao()
+    @Provides @Singleton fun provideTempTransactionDao(db: AppDatabase): TempTransactionDao = db.tempTransactionDao()
+    @Provides @Singleton fun provideExpenseDao(db: AppDatabase): ExpenseDao = db.expenseDao()
+    @Provides @Singleton fun provideEarningsGoalDao(db: AppDatabase): EarningsGoalDao = db.earningsGoalDao()
 
     @Provides
     @Singleton
