@@ -9,19 +9,28 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@b4ffde65f4f3666289c284f7f4836b638250427 # v4
+      - uses: actions/setup-java@99b8673ff64fbf99d8d325f5d59db8e9919e5f0 # v4
         with:
           distribution: temurin
           java-version: "17"
-      - uses: android-actions/setup-android@v3
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@af7a161 # v3
+      - name: Create local.properties
+        run: |
+          echo "sdk.dir=${ANDROID_SDK_ROOT}" > app-root/local.properties
+          echo "MAPS_API_KEY=${{ secrets.MAPS_API_KEY }}" >> app-root/local.properties
       - name: Unit tests
         run: ./gradlew test --console=plain
         working-directory: app-root
-        env:
-          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+      - name: Lint
+        run: ./gradlew lintDebug --console=plain
+        working-directory: app-root
       - name: Debug APK
         run: ./gradlew assembleDebug --console=plain
         working-directory: app-root
-        env:
-          MAPS_API_KEY: ${{ secrets.MAPS_API_KEY }}
+      - name: Upload APK
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b288fa332909c # v4
+        with:
+          name: GigRun-debug
+          path: app-root/app/build/outputs/apk/debug/*.apk
