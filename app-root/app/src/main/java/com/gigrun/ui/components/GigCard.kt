@@ -38,9 +38,12 @@ fun GigCard(
     content: @Composable ColumnScope.() -> Unit
 ) {
     val c = LocalGigRunColors.current
-    // Always call (stable hook count) — apply only when opted in.
-    val alpha = beastEntranceAlpha(entranceIndex.coerceAtLeast(0), entranceVisible)
-    val y = beastEntranceOffsetY(entranceIndex.coerceAtLeast(0), entranceVisible)
+    // Only run entrance animation hooks when opted in — calling beastReducedMotion()
+    // unconditionally on every card registers a ContentObserver mid-composition and
+    // crashes when ANIMATOR_DURATION_SCALE changes during the composition pass.
+    val animating = entranceIndex >= 0
+    val alpha = if (animating) beastEntranceAlpha(entranceIndex, entranceVisible) else 1f
+    val y = if (animating) beastEntranceOffsetY(entranceIndex, entranceVisible) else 0f
     var m = modifier
     if (entranceIndex >= 0) {
         m = m.graphicsLayer { this.alpha = alpha; translationY = y }

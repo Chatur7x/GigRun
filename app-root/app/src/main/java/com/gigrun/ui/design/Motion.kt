@@ -119,9 +119,14 @@ fun Modifier.beastPress(
 @Composable
 fun beastEntranceAlpha(index: Int, visible: Boolean): Float {
     val target = if (visible) 1f else 0f
+    // Do NOT call beastReducedMotion() here — it registers a ContentObserver via
+    // DisposableEffect, and calling it inside animateFloatAsState's animationSpec
+    // parameter evaluates during composition. When ANIMATOR_DURATION_SCALE changes
+    // mid-composition, the observer fires synchronously and crashes the app.
+    // The system animator scale is already respected at the Animator level.
     return animateFloatAsState(
         targetValue = target,
-        animationSpec = if (beastReducedMotion()) androidx.compose.animation.core.snap() else Motion.entrance(Motion.staggerFor(index)),
+        animationSpec = Motion.entrance(Motion.staggerFor(index)),
         label = "beastAlpha$index"
     ).value
 }
@@ -131,9 +136,10 @@ fun beastEntranceOffsetPx(index: Int, visible: Boolean): Float {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val targetDp = if (visible) 0.dp else 26.dp
     val targetPx = with(density) { targetDp.toPx() }
+    // Same: no beastReducedMotion() inside animateFloatAsState — see above.
     return animateFloatAsState(
         targetValue = targetPx,
-        animationSpec = if (beastReducedMotion()) androidx.compose.animation.core.snap() else Motion.entrance(Motion.staggerFor(index)),
+        animationSpec = Motion.entrance(Motion.staggerFor(index)),
         label = "beastY$index"
     ).value
 }
