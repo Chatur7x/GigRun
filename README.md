@@ -5,65 +5,91 @@
   <img src="https://img.shields.io/badge/Version-11.0-00E5FF?style=for-the-badge" />
 </p>
 
-# GigRun
+<h1 align="center">GigRun</h1>
 
-> **The ultimate gig-worker companion app for Indian delivery riders.** Track every trip, every rupee, every kilometer — automatically.
+<p align="center">
+  <strong>The smart companion app for Indian delivery riders.</strong><br/>
+  Track every trip, every rupee, every kilometer — automatically.
+</p>
 
-GigRun runs silently in the background while you work on **Blinkit, Zepto, Rapido, Uber** and more. It uses GPS tracking, notification interception, and a state machine to automatically classify your activity and calculate your *real* earnings per hour — after fuel, EMI, and wait time.
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#screenshots">Screenshots</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#getting-started">Get Started</a> •
+  <a href="#security">Security</a> •
+  <a href="#license">License</a>
+</p>
+
+---
+
+## About
+
+GigRun runs quietly in the background while you work on **Blinkit, Zepto, Rapido, Uber** and more. It uses your phone's GPS, notifications, and motion sensors to automatically understand what you are doing — and calculate your **real earnings per hour** after fuel, EMI, and waiting time.
+
+No manual entry. No spreadsheets. Just open the app, start your shift, and see your money grow in real time.
 
 ---
 
 ## Features
 
 ### Smart Dashboard
-- **Live shift tracking** with one-tap Start/End
-- Real-time ₹/hour (gross & net), trip count, distance
-- **Break-even meter** — animated gauge showing profit vs. daily costs
-- **Riding Score** — accelerometer-based monitoring of harsh braking, acceleration & sharp turns
-- **Speed Alert** — configurable overspeed warnings with haptic feedback
-- Fuel cost input with auto-calculation from km/L settings
+- **Live shift tracking** — one tap to start, one tap to end
+- Real-time ₹/hour (gross and net), trip count, distance covered
+- **Break-even meter** — a circular gauge that shows when you start making profit
+- **Riding Score** — monitors harsh braking, fast acceleration, and sharp turns
+- **Speed Alert** — warns you when you go over your set speed limit
+- **Fuel cost calculator** — auto-calculates from your bike's km/L and fuel price
 
-### GPS & Route Tracking
-- Continuous background GPS via foreground service
-- **Polyline route visualization** on Google Maps for every trip
-- Start/End markers with full coordinate details
-- Anchor-based location awareness (Home, Store, College)
+### GPS and Route Tracking
+- Continuous background GPS using a foreground service
+- **Route polyline** drawn on Google Maps for every trip
+- Start and end markers with full address details
+- **Anchor points** — set Home, Store, and College locations for smart detection
 
-### Automatic Activity Detection (FSM Engine)
-- **6-state finite state machine**: Idle → Commute → Waiting → Delivering → Complete → College
-- 15-second confidence threshold (3 consecutive readings)
-- Geofence-based transitions using configurable anchor points
-- Speed + location + notification signals combined for accuracy
+### Automatic Activity Detection
+- **6-state engine**: Idle, Commute, Waiting, Delivering, Complete, College
+- 15-second confidence check (3 readings in a row)
+- Uses speed, location, and notifications together for accuracy
+- Geofence-based transitions using your anchor points
 
 ### Earnings Tracking
 - **Notification interception** for Blinkit, Zepto, Rapido, Uber
-- Auto-extracts earning amounts from delivery notifications
-- Per-platform breakdown with trip count, distance, wait time
-- Weekly platform comparison dashboard
+- Auto-reads earning amounts from delivery notifications
+- Per-platform breakdown: trip count, distance, wait time
+- Weekly platform comparison chart
 
-### Crash Detection & Safety
-- **Multi-factor crash trigger**: Accelerometer > 4G + velocity drop + 8-second stillness
-- 30-second countdown with cancel option before alerting
-- Auto-SMS to 3 emergency contacts with GPS coordinates
-- Conditional activation based on user preference
+### Crash Detection and Safety
+- **Multi-factor crash trigger**: high G-force + sudden stop + 8 seconds of stillness
+- 30-second countdown with a cancel button before sending alert
+- Auto-SMS to 3 emergency contacts with your GPS location
+- You choose when crash detection is active
 
 ### PDF Shift Reports
 - One-tap **"Export Shift Report"** with full day summary
 - Platform breakdown, fuel costs, net earnings
 - Share via WhatsApp, email, or any app
 
-### Vehicle Maintenance Tracker
-- Pre-configured reminders: Oil, Air Filter, Chain, Tyres, General Service
-- **Dual-threshold alerts**: by kilometers AND days since last service
-- Animated progress bars with color-coded urgency
-- Snooze & Mark Done actions
+### Vehicle Maintenance
+- Pre-set reminders: Oil, Air Filter, Chain, Tyres, General Service
+- **Dual alerts**: by kilometers AND by days since last service
+- Color-coded progress bars (green, orange, red)
+- Snooze and Mark Done actions
 
-### Settings & Configuration
-- Location anchors (Home, Store/Hub, College) with lat/lon
-- Vehicle info (type, make, model, odometer)
-- Fuel efficiency (km/L) & price (₹/L) for auto fuel cost calculation
-- Daily fixed costs (EMI, phone plan) for break-even calculation
-- Emergency contacts for crash detection
+### Settings
+- Location anchors (Home, Store, College) with latitude and longitude
+- Vehicle info: type, make, model, odometer
+- Fuel efficiency (km/L) and fuel price (₹/L)
+- Daily fixed costs: EMI, phone plan
+- Emergency contacts for crash alerts
+
+---
+
+## Screenshots
+
+<p align="center">
+  <em>Clean teal design with smooth animations, dark mode support, and clear typography.</em>
+</p>
 
 ---
 
@@ -86,7 +112,7 @@ com.gigrun/
 ├── di/                Hilt AppModule — singleton DB, DAOs, UserPreferences
 ├── presentation/
 │   ├── dashboard/     DashboardScreen + DashboardViewModel
-│   ├── trips/         TripListScreen, TripDetailScreen, TripsViewModel (with map polylines)
+│   ├── trips/         TripListScreen, TripDetailScreen, TripsViewModel
 │   ├── platforms/     PlatformCompareScreen
 │   ├── map/           MapScreen (anchor markers)
 │   ├── maintenance/   MaintenanceScreen (service reminders)
@@ -104,17 +130,18 @@ com.gigrun/
 │   ├── MaintenanceAlertWorker     Periodic WorkManager check
 │   └── BootReceiver               Reschedule maintenance after reboot
 └── ui/
-    ├── design/        GigRunColors (teal token palette), GigRunTheme, Motion (beast system)
-    └── components/    GigCard, EmptyState, BeastPrimitives, ProgressRing,
-                       BreakEvenMeter, StatRow, ChipLabel, NavRow, SectionHeader,
-                       SurgeBadge, AnimatedRupees
+    ├── design/        GigRunColors (teal palette), GigRunTheme, Motion (animations)
+    └── components/    GigCard, EmptyState, ProgressRing, BreakEvenMeter,
+                       StatRow, ChipLabel, NavRow, SectionHeader, SurgeBadge,
+                       AnimatedRupees
 ```
 
 ### Tech Stack
+
 | Layer | Technology |
 |-------|-----------|
 | **UI** | Jetpack Compose + Material 3 |
-| **DI** | Hilt (singleton DB across all services & ViewModels) |
+| **DI** | Hilt (singleton DB across all services and ViewModels) |
 | **DB** | Room v4 with Flow-based reactive queries + explicit migrations |
 | **Preferences** | Jetpack DataStore (corruption-safe with fallback) |
 | **Maps** | Google Maps Compose (`maps-compose`) |
@@ -132,28 +159,30 @@ com.gigrun/
 - Google Maps API key (add to `local.properties` as `MAPS_API_KEY`)
 
 ### Build
+
 ```bash
-# Clone
+# Clone the repo
 git clone https://github.com/Chatur7x/GigRun.git
 cd GigRun/app-root
 
-# Debug APK
+# Build debug APK
 ./gradlew assembleDebug
 
-# Run tests
+# Run unit tests
 ./gradlew test
 
-# Lint
+# Run lint check
 ./gradlew lintDebug
 ```
 
-### Permissions Required
+### Permissions
+
 | Permission | Why |
 |-----------|-----|
 | `ACCESS_FINE_LOCATION` | GPS tracking for trips |
-| `ACCESS_BACKGROUND_LOCATION` | Continue tracking when app is backgrounded |
-| `FOREGROUND_SERVICE_LOCATION` | Android 14+ foreground service requirement |
-| `POST_NOTIFICATIONS` | Shift status & maintenance alerts |
+| `ACCESS_BACKGROUND_LOCATION` | Keep tracking when app is in background |
+| `FOREGROUND_SERVICE_LOCATION` | Required on Android 14+ |
+| `POST_NOTIFICATIONS` | Shift status and maintenance alerts |
 | `SEND_SMS` | Emergency crash alerts |
 | `BIND_NOTIFICATION_LISTENER_SERVICE` | Auto-detect delivery earnings |
 
@@ -163,10 +192,10 @@ cd GigRun/app-root
 
 - **NotificationParser**: anchored regex, 2000-char cap, velocity dedup
 - **PrefsValidation**: central clamps for all preference setters, premium contact blocklist
-- **LedgerManager**: 8KB payload cap, 200-txn cap, mutex serialization
-- **CrashDetectionService**: send-time guard, 10-min SMS cooldown
-- **TripsScreen**: allowlist, clamps, 30MB+EXIF strip
-- **Mock-GPS drop** in LocationTrackingService + CrashDetectionService
+- **LedgerManager**: 8KB payload cap, 200-transaction cap, mutex serialization
+- **CrashDetectionService**: send-time guard, 10-minute SMS cooldown
+- **TripsScreen**: allowlist, clamps, 30MB+ EXIF strip
+- **Mock-GPS drop** in LocationTrackingService and CrashDetectionService
 - **Room DB v4**: unique index on service_reminders, explicit idempotent migrations
 
 ---
@@ -177,11 +206,11 @@ cd GigRun/app-root
 |---------|------|---------|
 | **v11** | Sep 2026 | Fixed app crash on launch (ContentObserver in composition path) |
 | **v10** | Sep 2026 | Lint fixes (MarkerState remember, uses-feature telephony) |
-| **v9** | Sep 2026 | Full UI migration to LocalGigRunColors + GigCard/EmptyState/Motion beast system |
+| **v9** | Sep 2026 | Full UI migration to GigRunColors + GigCard/EmptyState/Motion system |
 | **v8** | Sep 2026 | Security hardening (NotificationParser, PrefsValidation, LedgerManager caps), Room DB v4 |
-| **v7** | Sep 2026 | Beast motion system, full-bleed hero, haptic CTA |
-| **v3.2** | June 2026 | Added Riding Score monitor, Speed Alert system, HUD settings |
-| **v3.0** | June 2026 | Apple-themed UI redesign, Hilt DI, singleton DB, crash detection, PDF export |
+| **v7** | Sep 2026 | Smooth motion system, full-bleed hero, haptic feedback |
+| **v3.2** | June 2026 | Riding Score monitor, Speed Alert system, HUD settings |
+| **v3.0** | June 2026 | UI redesign, Hilt DI, singleton DB, crash detection, PDF export |
 | v2.0 | June 2025 | Core FSM engine, notification parsing, break-even tracker |
 | v1.0 | May 2025 | Initial prototype with basic GPS tracking |
 
@@ -199,7 +228,7 @@ cd GigRun/app-root
 
 ## License
 
-This project is for personal/educational use. All rights reserved.
+This project is for personal and educational use. All rights reserved.
 
 ---
 
