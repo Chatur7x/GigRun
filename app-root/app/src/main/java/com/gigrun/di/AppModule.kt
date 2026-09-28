@@ -1,6 +1,9 @@
 package com.gigrun.di
 
 import android.content.Context
+import com.gigrun.core.utils.GoalsCalculator
+import com.gigrun.core.utils.PdfExporter
+import com.gigrun.core.utils.TaxCalculator
 import com.gigrun.data.database.AppDatabase
 import com.gigrun.data.database.dao.*
 import com.gigrun.data.preferences.UserPreferences
@@ -40,4 +43,10 @@ object AppModule {
     fun provideUserPreferences(@ApplicationContext context: Context): UserPreferences {
         return UserPreferences(context)
     }
+
+    // Kotlin object singletons — Hilt cannot inject object types directly,
+    // so we provide them explicitly. DashboardViewModel depends on all three.
+    @Provides @Singleton fun provideGoalsCalculator(): GoalsCalculator = GoalsCalculator
+    @Provides @Singleton fun provideTaxCalculator(): TaxCalculator = TaxCalculator
+    @Provides @Singleton fun providePdfExporter(): PdfExporter = PdfExporter
 }
