@@ -37,6 +37,7 @@ import com.gigrun.presentation.maintenance.MaintenanceScreen
 import com.gigrun.presentation.map.MapScreen
 import com.gigrun.presentation.platforms.PlatformCompareScreen
 import com.gigrun.presentation.settings.SettingsScreen
+import com.gigrun.presentation.penalties.PenaltyTrackerScreen
 import com.gigrun.presentation.tax.TaxHelperScreen
 import com.gigrun.presentation.trips.TripDetailScreen
 import com.gigrun.presentation.trips.TripListScreen
@@ -63,6 +64,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     data object Goals : Screen("goals", "Goals", Icons.Filled.Flag)
     data object Tax : Screen("tax", "Tax", Icons.Filled.AccountBalance)
     data object FuelBike : Screen("fuelbike", "Fuel & Bike", Icons.Filled.LocalGasStation)
+    data object Penalties : Screen("penalties", "Penalties", Icons.Filled.Warning)
 }
 
 val bottomNavItems = listOf(Screen.Dashboard, Screen.Map, Screen.Trips, Screen.Platforms, Screen.Maintenance, Screen.Settings)
@@ -170,7 +172,10 @@ class MainActivity : ComponentActivity() {
                         val tripsVm: TripsViewModel = hiltViewModel()
                         NavHost(navController, Screen.Dashboard.route) {
                             composable(Screen.Dashboard.route) {
-                                DashboardScreen(onSettingsClick = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } })
+                                DashboardScreen(
+                                    onSettingsClick = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } },
+                                    onNavigateToPenalties = { navController.navigate(Screen.Penalties.route) { launchSingleTop = true } }
+                                )
                             }
                             composable(Screen.Map.route) { MapScreen(onSettingsClick = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } }) }
                             composable(Screen.Trips.route) { TripListScreen(tripsVm) { navController.navigate(Screen.TripDetail.routeFor(it.id)) { launchSingleTop = true } } }
@@ -193,6 +198,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             composable(Screen.FuelBike.route) { FuelBikeScreen(onBackClick = { navController.popBackStack() }) }
+                            composable(Screen.Penalties.route) { PenaltyTrackerScreen(onBack = { navController.popBackStack() }) }
                             composable(Screen.Settings.route) {
                                 SettingsScreen(
                                     // Settings is also a bottom-bar tab: popping the last

@@ -12,6 +12,7 @@ import com.gigrun.data.database.dao.ExpenseDao
 import com.gigrun.data.database.dao.ShiftDao
 import com.gigrun.data.database.dao.TripDao
 import com.gigrun.data.preferences.UserPreferences
+import com.gigrun.data.repository.PenaltyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -50,7 +51,10 @@ data class DashboardUiState(
     val expensesTotal: Double = 0.0,
     val deductibleTotal: Double = 0.0,
     // Tax
-    val taxSummary: TaxCalculator.TaxSummary? = null
+    val taxSummary: TaxCalculator.TaxSummary? = null,
+    // Penalties
+    val penaltiesThisMonth: Double = 0.0,
+    val disputedThisMonth: Double = 0.0
 )
 
 @HiltViewModel
@@ -59,7 +63,8 @@ class DashboardViewModel @Inject constructor(
     private val tripDao: TripDao,
     private val expenseDao: ExpenseDao,
     private val goalDao: EarningsGoalDao,
-    private val prefs: UserPreferences
+    private val prefs: UserPreferences,
+    private val penaltyRepository: PenaltyRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -148,6 +153,15 @@ class DashboardViewModel @Inject constructor(
             val monthDeductible = expenseDao.getDeductibleTotalForRange(monthAgo, endOfDay) ?: 0.0
             val taxSummary = if (monthEarnings > 0) TaxCalculator.calculate(monthEarnings, 30, monthDeductible) else null
 
+            // Penalties this month
+            val zone = java.time.ZoneId.systemDefault()
+            val firstOfMonth = java.time.LocalDate.now().withDayOfMonth(1)
+                .atStartOfDay(zone).toInstant().toEpochMilli()
+            val firstOfNextMonth = java.time.LocalDate.now().withDayOfMonth(1)
+                .plusMonths(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val penaltiesThisMonth = penaltyRepository.getMonthlyTotal(firstOfMonth, firstOfNextMonth).first()
+            val disputedThisMonth = penaltyRepository.getDisputedTotal(firstOfMonth, firstOfNextMonth).first()
+
             _uiState.value = DashboardUiState(
                 totalEarned = totalEarnings, fuelCost = fuelCost, netEarned = netEarned,
                 shiftTimeMinutes = shiftTimeMin, waitTimeMinutes = waitTimeMin,
@@ -159,7 +173,9 @@ class DashboardViewModel @Inject constructor(
                 surgeTotal = surgeTotal, bonusTotal = bonusTotal, tipsTotal = tipsTotal,
                 dailyGoal = effectiveGoal, goalProgress = gp.progress, goalRemaining = gp.remaining, tripsToGoal = gp.tripsNeeded,
                 isGoalAuto = isAuto, expensesTotal = expensesTotal, deductibleTotal = deductibleTotal,
-                taxSummary = taxSummary
+                taxSummary = taxSummary,
+                penaltiesThisMonth = penaltiesThisMonth,
+                disputedThisMonth = disputedThisMonth
             )
         }
 

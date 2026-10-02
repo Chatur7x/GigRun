@@ -16,8 +16,8 @@ android {
         applicationId = "com.gigrun"
         minSdk = 28
         targetSdk = 36
-        versionCode = 7
-        versionName = "7.0"
+        versionCode = 14
+        versionName = "14.0"
 
         val localProperties = Properties()
         val localPropertiesFile = rootProject.file("local.properties")
@@ -109,6 +109,10 @@ dependencies {
   implementation(libs.androidx.room.runtime)
   implementation(libs.androidx.room.ktx)
   ksp(libs.androidx.room.compiler)
+  androidTestImplementation(libs.androidx.room.testing)
+
+  // EncryptedFile for Document Wallet (Feature 32)
+  implementation(libs.androidx.security.crypto)
 
   // Hilt Dependency Injection
   implementation(libs.hilt.android)

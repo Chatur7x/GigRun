@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -36,6 +37,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun DashboardScreen(
     onSettingsClick: () -> Unit = {},
+    onNavigateToPenalties: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val c = LocalGigRunColors.current
@@ -178,6 +180,25 @@ fun DashboardScreen(
                 }
                 Spacer(Modifier.height(12.dp))
             }
+
+            // Penalties summary — clickable, navigates to penalty tracker
+            GigCard(
+                onClick = onNavigateToPenalties,
+                modifier = Modifier.fillMaxWidth().testTag("dashboard_penalty_card")
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Penalties This Month", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = c.textSecondary)
+                    Spacer(Modifier.height(6.dp))
+                    AnimatedRupees(target = state.penaltiesThisMonth) { text ->
+                        Text(text, fontSize = 20.sp, fontWeight = FontWeight.Bold, color = c.textPrimary)
+                    }
+                    if (state.disputedThisMonth > 0) {
+                        Spacer(Modifier.height(4.dp))
+                        Text("In Dispute: ₹${state.disputedThisMonth.toInt()}", fontSize = 12.sp, color = c.warning)
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
 
             // Shift summary — collapsible, minimal dividers (static; expand uses spring)
             GigCard(Modifier.fillMaxWidth()) {

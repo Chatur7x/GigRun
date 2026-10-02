@@ -37,6 +37,7 @@ object AppModule {
     @Provides @Singleton fun provideTempTransactionDao(db: AppDatabase): TempTransactionDao = db.tempTransactionDao()
     @Provides @Singleton fun provideExpenseDao(db: AppDatabase): ExpenseDao = db.expenseDao()
     @Provides @Singleton fun provideEarningsGoalDao(db: AppDatabase): EarningsGoalDao = db.earningsGoalDao()
+    @Provides @Singleton fun providePenaltyDao(db: AppDatabase): PenaltyDao = db.penaltyDao()
 
     @Provides
     @Singleton
