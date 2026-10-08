@@ -171,6 +171,13 @@ class DashboardViewModel @Inject constructor(
 
             // Best platform this week — reuses the comparison screen's Monday window
             // so the dashboard card and the full screen can never disagree.
+            //
+            // TODO(v14, Feature 28): this is a one-shot read, so the card only
+            // refreshes when loadTodayStats() runs — a trip added mid-shift won't
+            // show up until the dashboard reloads. Same limitation as the penalty
+            // card above. Fixing it means making this VM reactive (combine() over
+            // DAO Flows), which should be done for both cards together rather than
+            // introducing a second state mechanism here. See docs/known-issues.md.
             val weekRange = PlatformComparisonViewModel.rangeToMillis(RangeOption.THIS_WEEK)
             val comparison = runCatching {
                 comparisonRepository.getComparison(weekRange.first, weekRange.second)

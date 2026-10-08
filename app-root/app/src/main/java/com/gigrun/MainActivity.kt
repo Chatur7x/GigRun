@@ -68,6 +68,7 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     data object Penalties : Screen("penalties", "Penalties", Icons.Filled.Warning)
     // Feature 28 — read-only platform economics. Distinct from Screen.Platforms,
     // which is the legacy gross-trips "Compare" tab.
+    // TODO(v14, Feature 28): consolidation deferred — see docs/known-issues.md.
     data object Comparison : Screen("comparison", "Comparison", Icons.Filled.BarChart)
 }
 
