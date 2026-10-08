@@ -250,6 +250,16 @@ class LocationTrackingService : Service() {
             handleStateTransition(result, lat, lon)
         }
 
+        // Feature 34 — heat index check on the same 30-second cadence as the
+        // notification tick. Cached network fetch (once/hour), no new service.
+        val nowFx = System.currentTimeMillis()
+        if (fsmEngine.currentState != lastFgState || nowFx - lastFgUpdateMs >= 30_000L) {
+            serviceScope.launch {
+                try { HeatIndexChecker.checkAndNotify(this@LocationTrackingService, lat, lon) }
+                catch (_: Exception) { /* network/location issues — not fatal */ }
+            }
+        }
+
         // Update notification with current state — throttled: every fix re-issuing
         // startForeground is IPC + shade churn. Refresh on state change or 30 s.
         val nowFg = System.currentTimeMillis()

@@ -23,7 +23,7 @@ import com.gigrun.data.database.entities.*
         EarningsGoal::class,
         Penalty::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -146,7 +146,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "gigrun_db"
                 ).addMigrations(
-                    MIGRATION_1_4, MIGRATION_2_4, MIGRATION_3_4, MIGRATION_4_5
+                    MIGRATION_1_4, MIGRATION_2_4, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6
                 ).build().also { INSTANCE = it }
             }
         }

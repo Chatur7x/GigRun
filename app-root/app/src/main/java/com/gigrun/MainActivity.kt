@@ -29,6 +29,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.gigrun.data.preferences.UserPreferences
 import com.gigrun.presentation.comparison.PlatformComparisonScreen
+import com.gigrun.presentation.vehicle.VehicleScreen
 import com.gigrun.presentation.crash.CrashCountdownOverlay
 import com.gigrun.presentation.dashboard.DashboardScreen
 import com.gigrun.presentation.expenses.ExpensesScreen
@@ -70,6 +71,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     // which is the legacy gross-trips "Compare" tab.
     // TODO(v14, Feature 28): consolidation deferred — see docs/known-issues.md.
     data object Comparison : Screen("comparison", "Comparison", Icons.Filled.BarChart)
+    // Feature 21 — multi-vehicle garage, fuel efficiency and running cost.
+    data object Vehicle : Screen("vehicle", "Vehicle", Icons.Filled.DirectionsBike)
 }
 
 val bottomNavItems = listOf(Screen.Dashboard, Screen.Map, Screen.Trips, Screen.Platforms, Screen.Maintenance, Screen.Settings)
@@ -206,6 +209,7 @@ class MainActivity : ComponentActivity() {
                             composable(Screen.FuelBike.route) { FuelBikeScreen(onBackClick = { navController.popBackStack() }) }
                             composable(Screen.Penalties.route) { PenaltyTrackerScreen(onBack = { navController.popBackStack() }) }
                             composable(Screen.Comparison.route) { PlatformComparisonScreen(onBack = { navController.popBackStack() }) }
+                            composable(Screen.Vehicle.route) { VehicleScreen(onBack = { navController.popBackStack() }) }
                             composable(Screen.Settings.route) {
                                 SettingsScreen(
                                     // Settings is also a bottom-bar tab: popping the last
