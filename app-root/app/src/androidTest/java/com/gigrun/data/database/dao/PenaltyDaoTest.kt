@@ -6,8 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.gigrun.data.database.AppDatabase
 import com.gigrun.data.database.entities.Penalty
-import kotlinx.coroutines.runTest
-import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.equalTo

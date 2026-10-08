@@ -4,11 +4,10 @@ import android.content.Context
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
-import androidx.compose.ui.test.assertExists
-import androidx.compose.ui.test.assertDoesNotExist
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -16,7 +15,8 @@ import com.gigrun.data.database.AppDatabase
 import com.gigrun.data.database.dao.PenaltyDao
 import com.gigrun.data.database.entities.Penalty
 import com.gigrun.data.repository.PenaltyRepository
-import kotlinx.coroutines.runTest
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.equalTo
 import org.hamcrest.Matchers.not
@@ -143,8 +143,10 @@ class PenaltyTrackerScreenTest {
             .onNodeWithTag("save_btn")
             .performClick()
 
-        // Wait for state to update
-        advanceTimeBy(500)
+        // Wait for the DAO write to propagate through the Flow into the UI state.
+        composeRule.waitUntil(5_000) {
+            composeRule.onAllNodesWithText("Test penalty reason").fetchSemanticsNodes().isNotEmpty()
+        }
 
         // Verify the penalty appears in the list
         composeRule
@@ -166,7 +168,7 @@ class PenaltyTrackerScreenTest {
             amountInr = 200.0,
             reason = "Pre-existing",
             timestamp = System.currentTimeMillis()
-        )).first()
+        ))
 
         val viewModel2 = PenaltyTrackerViewModel(repo)
 

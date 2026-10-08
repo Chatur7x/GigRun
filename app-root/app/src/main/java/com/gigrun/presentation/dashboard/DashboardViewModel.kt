@@ -13,6 +13,9 @@ import com.gigrun.data.database.dao.ShiftDao
 import com.gigrun.data.database.dao.TripDao
 import com.gigrun.data.preferences.UserPreferences
 import com.gigrun.data.repository.PenaltyRepository
+import com.gigrun.data.repository.PlatformComparisonRepository
+import com.gigrun.presentation.comparison.PlatformComparisonViewModel
+import com.gigrun.presentation.comparison.RangeOption
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -54,7 +57,10 @@ data class DashboardUiState(
     val taxSummary: TaxCalculator.TaxSummary? = null,
     // Penalties
     val penaltiesThisMonth: Double = 0.0,
-    val disputedThisMonth: Double = 0.0
+    val disputedThisMonth: Double = 0.0,
+    // Platform comparison (Feature 28) — best platform this week
+    val bestPlatform: String? = null,
+    val bestNetPerHour: Double = 0.0
 )
 
 @HiltViewModel
@@ -64,7 +70,8 @@ class DashboardViewModel @Inject constructor(
     private val expenseDao: ExpenseDao,
     private val goalDao: EarningsGoalDao,
     private val prefs: UserPreferences,
-    private val penaltyRepository: PenaltyRepository
+    private val penaltyRepository: PenaltyRepository,
+    private val comparisonRepository: PlatformComparisonRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -162,6 +169,14 @@ class DashboardViewModel @Inject constructor(
             val penaltiesThisMonth = penaltyRepository.getMonthlyTotal(firstOfMonth, firstOfNextMonth).first()
             val disputedThisMonth = penaltyRepository.getDisputedTotal(firstOfMonth, firstOfNextMonth).first()
 
+            // Best platform this week — reuses the comparison screen's Monday window
+            // so the dashboard card and the full screen can never disagree.
+            val weekRange = PlatformComparisonViewModel.rangeToMillis(RangeOption.THIS_WEEK)
+            val comparison = runCatching {
+                comparisonRepository.getComparison(weekRange.first, weekRange.second)
+            }.getOrNull().orEmpty()
+            val bestRow = comparison.firstOrNull()?.takeIf { it.activeHours > 0.0 }
+
             _uiState.value = DashboardUiState(
                 totalEarned = totalEarnings, fuelCost = fuelCost, netEarned = netEarned,
                 shiftTimeMinutes = shiftTimeMin, waitTimeMinutes = waitTimeMin,
@@ -175,7 +190,9 @@ class DashboardViewModel @Inject constructor(
                 isGoalAuto = isAuto, expensesTotal = expensesTotal, deductibleTotal = deductibleTotal,
                 taxSummary = taxSummary,
                 penaltiesThisMonth = penaltiesThisMonth,
-                disputedThisMonth = disputedThisMonth
+                disputedThisMonth = disputedThisMonth,
+                bestPlatform = bestRow?.platform,
+                bestNetPerHour = bestRow?.netPerHourInr ?: 0.0
             )
         }
 

@@ -79,7 +79,31 @@ interface TripDao {
 
     @Query("SELECT platform, COUNT(*) as tripCount, SUM(earningInr) as totalEarnings, SUM(distanceKm) as totalDistance, AVG(waitTimeSec) as avgWaitTime FROM trips WHERE startTime >= :startTime GROUP BY platform")
     suspend fun getPlatformStats(startTime: Long): List<PlatformStatRow>
+
+    /**
+     * Feature 28 — per-platform activity inside a half-open window [start, end).
+     * Only completed trips count (endTime IS NOT NULL) so in-progress trips never
+     * inflate active hours. SQLite integer / 3600000.0 promotes to REAL division.
+     */
+    @Query("""
+        SELECT platform,
+               SUM((endTime - startTime) / 3600000.0) as hours,
+               SUM(distanceKm) as km,
+               COUNT(*) as tripCount
+        FROM trips
+        WHERE startTime >= :start AND startTime < :end
+          AND endTime IS NOT NULL
+        GROUP BY platform
+    """)
+    suspend fun getActivityByPlatform(start: Long, end: Long): List<PlatformActivityRow>
 }
+
+data class PlatformActivityRow(
+    val platform: String,
+    val hours: Double,
+    val km: Double,
+    val tripCount: Int
+)
 
 data class PlatformStatRow(
     val platform: String,

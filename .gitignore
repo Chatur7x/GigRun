@@ -26,3 +26,6 @@ app-root/.kotlin/
 
 # Config cache
 app-root/.cxx/
+
+# Build/console logs
+*.log

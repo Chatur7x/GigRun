@@ -30,6 +30,18 @@ interface ExpenseDao {
 
     @Query("DELETE FROM expenses WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    /**
+     * Feature 28 — non-fuel expense total inside a half-open window [start, end).
+     * Fuel is excluded here because it is already counted via `fuel_logs`; adding
+     * both would double-charge the platform allocation.
+     */
+    @Query("""
+        SELECT SUM(amount) FROM expenses
+        WHERE timestamp >= :start AND timestamp < :end
+          AND category != 'FUEL' COLLATE NOCASE
+    """)
+    suspend fun getTotalNonFuelExpenses(start: Long, end: Long): Double?
 }
 
 data class ExpenseCategoryRow(val category: String, val total: Double?)

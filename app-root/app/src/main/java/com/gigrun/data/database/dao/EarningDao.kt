@@ -27,6 +27,18 @@ interface EarningDao {
 
     @Query("SELECT platform, SUM(amountInr) as total FROM earnings WHERE timestamp >= :startTime GROUP BY platform")
     suspend fun getEarningsByPlatformSince(startTime: Long): List<PlatformEarningRow>
+
+    /**
+     * Feature 28 — per-platform gross revenue inside a half-open window [start, end).
+     * Reuses [PlatformEarningRow] rather than declaring a second identical row type.
+     */
+    @Query("""
+        SELECT platform, SUM(amountInr) as total
+        FROM earnings
+        WHERE timestamp >= :start AND timestamp < :end
+        GROUP BY platform
+    """)
+    suspend fun getRevenueByPlatform(start: Long, end: Long): List<PlatformEarningRow>
 }
 
 data class PlatformEarningRow(

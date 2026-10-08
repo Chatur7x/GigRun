@@ -1,9 +1,6 @@
 package com.gigrun.data.database
 
 import android.content.Context
-import android.database.Cursor
-import androidx.arch.core.executor.testing.InstantTaskExecutorRule
-import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
@@ -11,8 +8,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.hamcrest.MatcherAssert.assertThat
 import org.hamcrest.Matchers.equalTo
-import org.hamcrest.Matchers.greaterThan
-import org.hamcrest.Matchers.not
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -26,9 +21,6 @@ class Migration4To5Test {
         InstrumentationRegistry.getInstrumentation(),
         AppDatabase::class.java
     )
-
-    @get:Rule
-    val instantExecutorRule = InstantTaskExecutorRule()
 
     private lateinit var db: SupportSQLiteDatabase
     private lateinit var context: Context

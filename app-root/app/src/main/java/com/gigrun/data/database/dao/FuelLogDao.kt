@@ -29,4 +29,11 @@ interface FuelLogDao {
 
     @Query("SELECT * FROM fuel_logs WHERE vehicleId = :vehicleId AND timestamp >= :timeLimit ORDER BY timestamp DESC LIMIT 1")
     suspend fun getLatestFuelLogWithinTime(vehicleId: Long, timeLimit: Long): FuelLog?
+
+    /** Feature 28 — total fuel spend inside a half-open window [start, end). */
+    @Query("""
+        SELECT SUM(amountInr) FROM fuel_logs
+        WHERE timestamp >= :start AND timestamp < :end
+    """)
+    suspend fun getTotalFuel(start: Long, end: Long): Double?
 }

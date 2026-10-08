@@ -38,6 +38,7 @@ import kotlinx.coroutines.launch
 fun DashboardScreen(
     onSettingsClick: () -> Unit = {},
     onNavigateToPenalties: () -> Unit = {},
+    onNavigateToComparison: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val c = LocalGigRunColors.current
@@ -195,6 +196,26 @@ fun DashboardScreen(
                     if (state.disputedThisMonth > 0) {
                         Spacer(Modifier.height(4.dp))
                         Text("In Dispute: ₹${state.disputedThisMonth.toInt()}", fontSize = 12.sp, color = c.warning)
+                    }
+                }
+            }
+            Spacer(Modifier.height(12.dp))
+
+            // Best platform this week — clickable, navigates to the full comparison.
+            GigCard(
+                onClick = onNavigateToComparison,
+                modifier = Modifier.fillMaxWidth().testTag("dashboard_best_platform_card")
+            ) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Best this week", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = c.textSecondary)
+                    Spacer(Modifier.height(6.dp))
+                    if (state.bestPlatform != null) {
+                        Text(
+                            "${state.bestPlatform} · ₹${state.bestNetPerHour.toInt()}/hr net",
+                            fontSize = 16.sp, fontWeight = FontWeight.Bold, color = c.textPrimary
+                        )
+                    } else {
+                        Text("No data yet", fontSize = 16.sp, color = c.textTertiary)
                     }
                 }
             }

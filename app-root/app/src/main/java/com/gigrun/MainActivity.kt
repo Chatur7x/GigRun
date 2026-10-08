@@ -28,6 +28,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.gigrun.data.preferences.UserPreferences
+import com.gigrun.presentation.comparison.PlatformComparisonScreen
 import com.gigrun.presentation.crash.CrashCountdownOverlay
 import com.gigrun.presentation.dashboard.DashboardScreen
 import com.gigrun.presentation.expenses.ExpensesScreen
@@ -65,6 +66,9 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
     data object Tax : Screen("tax", "Tax", Icons.Filled.AccountBalance)
     data object FuelBike : Screen("fuelbike", "Fuel & Bike", Icons.Filled.LocalGasStation)
     data object Penalties : Screen("penalties", "Penalties", Icons.Filled.Warning)
+    // Feature 28 — read-only platform economics. Distinct from Screen.Platforms,
+    // which is the legacy gross-trips "Compare" tab.
+    data object Comparison : Screen("comparison", "Comparison", Icons.Filled.BarChart)
 }
 
 val bottomNavItems = listOf(Screen.Dashboard, Screen.Map, Screen.Trips, Screen.Platforms, Screen.Maintenance, Screen.Settings)
@@ -174,7 +178,8 @@ class MainActivity : ComponentActivity() {
                             composable(Screen.Dashboard.route) {
                                 DashboardScreen(
                                     onSettingsClick = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } },
-                                    onNavigateToPenalties = { navController.navigate(Screen.Penalties.route) { launchSingleTop = true } }
+                                    onNavigateToPenalties = { navController.navigate(Screen.Penalties.route) { launchSingleTop = true } },
+                                    onNavigateToComparison = { navController.navigate(Screen.Comparison.route) { launchSingleTop = true } }
                                 )
                             }
                             composable(Screen.Map.route) { MapScreen(onSettingsClick = { navController.navigate(Screen.Settings.route) { launchSingleTop = true } }) }
@@ -199,6 +204,7 @@ class MainActivity : ComponentActivity() {
                             }
                             composable(Screen.FuelBike.route) { FuelBikeScreen(onBackClick = { navController.popBackStack() }) }
                             composable(Screen.Penalties.route) { PenaltyTrackerScreen(onBack = { navController.popBackStack() }) }
+                            composable(Screen.Comparison.route) { PlatformComparisonScreen(onBack = { navController.popBackStack() }) }
                             composable(Screen.Settings.route) {
                                 SettingsScreen(
                                     // Settings is also a bottom-bar tab: popping the last
