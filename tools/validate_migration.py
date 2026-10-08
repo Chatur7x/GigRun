@@ -30,11 +30,35 @@ def load(version):
         return json.load(fh)["database"]
 
 
-def statements_from_kotlin(path):
-    """Pull every quoted SQL string out of db.execSQL(...) calls, concatenated."""
+def statements_from_kotlin(path, src_v=None, dst_v=None):
+    """Pull quoted SQL strings out of db.execSQL(...) calls.
+
+    When (src_v, dst_v) is supplied, only statements inside the matching
+    `object : Migration(src_v, dst_v) { ... }` block are returned, so a file
+    holding several migrations validates just the one being tested.
+    """
     src = path.read_text(encoding="utf-8")
+    body = src
+    if src_v is not None:
+        marker = f"object : Migration({src_v}, {dst_v})"
+        i = src.find(marker)
+        if i < 0:
+            raise SystemExit(f"No Migration({src_v}, {dst_v}) block found in {path}")
+        # walk braces from the block's opening brace to find its extent
+        start = src.find("{", i)
+        depth = 0
+        j = start
+        while j < len(src):
+            if src[j] == "{":
+                depth += 1
+            elif src[j] == "}":
+                depth -= 1
+                if depth == 0:
+                    break
+            j += 1
+        body = src[start:j]
     out = []
-    for m in re.finditer(r'db\.execSQL\(\s*((?:"(?:[^"\\]|\\.)*"\s*\+?\s*)+)\)', src):
+    for m in re.finditer(r'db\.execSQL\(\s*((?:"(?:[^"\\]|\\.)*"\s*\+?\s*)+)\)', body):
         parts = re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(1))
         out.append("".join(parts).replace("\\`", "`"))
     return out
@@ -165,7 +189,7 @@ def main():
     print(f"v{src_v} version={v_src['version']} entities={len(v_src['entities'])}")
     print(f"v{dst_v} version={v_dst['version']} entities={len(v_dst['entities'])}")
 
-    stmts = statements_from_kotlin(MIGRATIONS)
+    stmts = statements_from_kotlin(MIGRATIONS, src_v, dst_v)
     print(f"\nStatements extracted from Migrations.kt: {len(stmts)}")
     for s in stmts:
         print("   " + (s if len(s) <= 96 else s[:93] + "..."))

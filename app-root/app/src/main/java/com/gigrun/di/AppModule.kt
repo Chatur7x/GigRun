@@ -38,6 +38,9 @@ object AppModule {
     @Provides @Singleton fun provideExpenseDao(db: AppDatabase): ExpenseDao = db.expenseDao()
     @Provides @Singleton fun provideEarningsGoalDao(db: AppDatabase): EarningsGoalDao = db.earningsGoalDao()
     @Provides @Singleton fun providePenaltyDao(db: AppDatabase): PenaltyDao = db.penaltyDao()
+    @Provides @Singleton fun provideInsuranceDao(db: AppDatabase): InsuranceDao = db.insuranceDao()
+    @Provides @Singleton fun provideDocumentDao(db: AppDatabase): DocumentDao = db.documentDao()
+    @Provides @Singleton fun provideShiftLogDao(db: AppDatabase): ShiftLogDao = db.shiftLogDao()
 
     @Provides
     @Singleton

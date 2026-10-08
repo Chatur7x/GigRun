@@ -39,3 +39,21 @@ val MIGRATION_5_6 = object : Migration(5, 6) {
         db.execSQL("ALTER TABLE vehicles ADD COLUMN phoneBillPerMonth REAL")
     }
 }
+
+/**
+ * v6 → v7: Safety Net tables for Features 29/31/32.
+ * Column types and nullability are copied verbatim from the exported v7 schema.
+ */
+val MIGRATION_6_7 = object : Migration(6, 7) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `insurance_policies` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `provider` TEXT NOT NULL, `policyNumber` TEXT NOT NULL, `type` TEXT NOT NULL, `premiumInr` REAL NOT NULL, `startDate` INTEGER NOT NULL, `endDate` INTEGER NOT NULL, `isPlatformProvided` INTEGER NOT NULL, `claimDeadlineDays` INTEGER NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `documents` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `type` TEXT NOT NULL, `filePath` TEXT NOT NULL, `expiryDate` INTEGER, `notes` TEXT)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `shift_logs` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `startTime` INTEGER NOT NULL, `endTime` INTEGER, `breakCount` INTEGER NOT NULL, `totalBreakMinutes` INTEGER NOT NULL, `fatigueScore` INTEGER NOT NULL)")
+
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_insurance_policies_endDate` ON `insurance_policies` (`endDate`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_insurance_policies_type` ON `insurance_policies` (`type`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_documents_expiryDate` ON `documents` (`expiryDate`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_documents_type` ON `documents` (`type`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_shift_logs_startTime` ON `shift_logs` (`startTime`)")
+    }
+}

@@ -21,9 +21,12 @@ import com.gigrun.data.database.entities.*
         TempTransaction::class,
         Expense::class,
         EarningsGoal::class,
-        Penalty::class
+        Penalty::class,
+        InsurancePolicy::class,
+        Document::class,
+        ShiftLog::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -38,6 +41,9 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun expenseDao(): ExpenseDao
     abstract fun earningsGoalDao(): EarningsGoalDao
     abstract fun penaltyDao(): PenaltyDao
+    abstract fun insuranceDao(): InsuranceDao
+    abstract fun documentDao(): DocumentDao
+    abstract fun shiftLogDao(): ShiftLogDao
 
     companion object {
         @Volatile
@@ -146,7 +152,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "gigrun_db"
                 ).addMigrations(
-                    MIGRATION_1_4, MIGRATION_2_4, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6
+                    MIGRATION_1_4, MIGRATION_2_4, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
                 ).build().also { INSTANCE = it }
             }
         }
