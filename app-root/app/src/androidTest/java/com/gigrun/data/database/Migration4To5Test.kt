@@ -35,10 +35,14 @@ class Migration4To5Test {
         // Step 1: Create v4 database
         db = helper.createDatabase("test_migration", 4)
 
-        // Insert a row into an existing v4 table (expenses)
+        // Insert a row into an existing v4 table (expenses) to prove data survives.
+        // shiftId is NULL, not 1: expenses.shiftId is a FK to shifts(id), and
+        // MigrationTestHelper enables PRAGMA foreign_keys=ON. Seeding an orphan
+        // shiftId would fail in setup and read as a migration failure when the
+        // migration itself is fine. NULL matches the entity (shiftId: Long? = null).
         db.execSQL(
             "INSERT INTO expenses (shiftId, category, amount, note, receiptUri, timestamp, isDeductible) " +
-            "VALUES (1, 'FUEL', 500.0, 'Test expense', null, ${System.currentTimeMillis()}, 1)"
+            "VALUES (NULL, 'FUEL', 500.0, 'Test expense', null, ${System.currentTimeMillis()}, 1)"
         )
 
         // Step 2: Run migration 4 -> 5
