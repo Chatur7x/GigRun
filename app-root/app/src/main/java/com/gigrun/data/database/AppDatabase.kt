@@ -24,9 +24,11 @@ import com.gigrun.data.database.entities.*
         Penalty::class,
         InsurancePolicy::class,
         Document::class,
-        ShiftLog::class
+        ShiftLog::class,
+        RepairGuide::class,
+        Tool::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = true
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -44,6 +46,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun insuranceDao(): InsuranceDao
     abstract fun documentDao(): DocumentDao
     abstract fun shiftLogDao(): ShiftLogDao
+    abstract fun repairGuideDao(): RepairGuideDao
+    abstract fun toolDao(): ToolDao
 
     companion object {
         @Volatile
@@ -152,7 +156,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "gigrun_db"
                 ).addMigrations(
-                    MIGRATION_1_4, MIGRATION_2_4, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7
+                    MIGRATION_1_4, MIGRATION_2_4, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8
                 ).build().also { INSTANCE = it }
             }
         }

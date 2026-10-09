@@ -41,6 +41,8 @@ object AppModule {
     @Provides @Singleton fun provideInsuranceDao(db: AppDatabase): InsuranceDao = db.insuranceDao()
     @Provides @Singleton fun provideDocumentDao(db: AppDatabase): DocumentDao = db.documentDao()
     @Provides @Singleton fun provideShiftLogDao(db: AppDatabase): ShiftLogDao = db.shiftLogDao()
+    @Provides @Singleton fun provideRepairGuideDao(db: AppDatabase): RepairGuideDao = db.repairGuideDao()
+    @Provides @Singleton fun provideToolDao(db: AppDatabase): ToolDao = db.toolDao()
 
     @Provides
     @Singleton

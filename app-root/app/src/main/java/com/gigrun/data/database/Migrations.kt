@@ -57,3 +57,19 @@ val MIGRATION_6_7 = object : Migration(6, 7) {
         db.execSQL("CREATE INDEX IF NOT EXISTS `index_shift_logs_startTime` ON `shift_logs` (`startTime`)")
     }
 }
+
+/**
+ * v7 → v8: Self-Sufficiency tables for Features 22/23.
+ * repair_guides and tools tables, seeded on first run via RoomDatabase.Callback.
+ */
+val MIGRATION_7_8 = object : Migration(7, 8) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS `repair_guides` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `symptom` TEXT NOT NULL, `title` TEXT NOT NULL, `stepsJson` TEXT NOT NULL, `difficulty` TEXT NOT NULL, `estimatedCostMinInr` INTEGER NOT NULL, `estimatedCostMaxInr` INTEGER NOT NULL, `toolsNeededJson` TEXT NOT NULL)")
+        db.execSQL("CREATE TABLE IF NOT EXISTS `tools` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `name` TEXT NOT NULL, `category` TEXT NOT NULL, `description` TEXT NOT NULL, `priceInr` INTEGER NOT NULL, `buyUrl` TEXT)")
+
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_repair_guides_symptom` ON `repair_guides` (`symptom`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_repair_guides_difficulty` ON `repair_guides` (`difficulty`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tools_category` ON `tools` (`category`)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS `index_tools_name` ON `tools` (`name`)")
+    }
+}
